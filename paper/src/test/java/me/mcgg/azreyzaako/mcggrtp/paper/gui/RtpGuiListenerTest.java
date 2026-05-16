@@ -1,13 +1,16 @@
 package me.mcgg.azreyzaako.mcggrtp.paper.gui;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -53,6 +56,7 @@ class RtpGuiListenerTest {
         when(plugin.warmupService()).thenReturn(warmupService);
         when(player.getLocation()).thenReturn(mock(Location.class));
         when(messages.text("no-permission")).thenReturn(Component.text("no-permission"));
+        when(messages.text("dimension-unavailable")).thenReturn(Component.text("dimension-unavailable"));
         when(messages.text("server-offline")).thenReturn(Component.text("server-offline"));
         when(messages.text(eq("sending-server"), eq("{server}"), any())).thenReturn(Component.text("sending-server"));
         doNothing().when(player).playSound(any(Location.class), any(Sound.class), eq(1.0F), eq(1.0F));
@@ -79,10 +83,21 @@ class RtpGuiListenerTest {
     }
 
     @Test
+    void mainMenuDeniesDimensionWithoutConfiguredServers() {
+        when(plugin.configModel()).thenReturn(configWithoutDimensionTargets());
+        when(player.hasPermission("mcggrtp.dimension.overworld")).thenReturn(true);
+
+        listener.onInventoryClick(event(mainInventory(), new ItemStack(Material.BARRIER), 10));
+
+        verify(player).sendMessage(Component.text("dimension-unavailable"));
+        verify(bridge, never()).requestServerMenu(any(), any());
+    }
+
+    @Test
     void serverMenuStartsLocalTeleportWarmupOnCurrentServer() {
         when(bridge.resolveCurrentServer(player)).thenReturn("survival-1");
 
-        listener.onInventoryClick(event(serverInventory("overworld"), new ItemStack(Material.LIME_WOOL), 0));
+        listener.onInventoryClick(event(serverInventory("overworld"), new ItemStack(Material.LIME_WOOL), 12));
 
         var callback = org.mockito.ArgumentCaptor.forClass(Runnable.class);
         verify(warmupService).begin(eq(player), eq(5), callback.capture());
@@ -96,7 +111,7 @@ class RtpGuiListenerTest {
         when(bridge.resolveCurrentServer(player)).thenReturn("survival-1");
         when(player.hasPermission("mcggrtp.server.survival-2")).thenReturn(true);
 
-        listener.onInventoryClick(event(serverInventory("overworld"), new ItemStack(Material.LIME_WOOL), 1));
+        listener.onInventoryClick(event(serverInventory("overworld"), new ItemStack(Material.LIME_WOOL), 13));
 
         var callback = org.mockito.ArgumentCaptor.forClass(Runnable.class);
         verify(warmupService).begin(eq(player), eq(5), callback.capture());
@@ -109,7 +124,7 @@ class RtpGuiListenerTest {
     void serverMenuDeniesOfflineServer() {
         when(bridge.cachedStatus("overworld", "survival-2")).thenReturn(new ServerStatusEntry("survival-2", "&aSurvival 2", false, 0));
 
-        listener.onInventoryClick(event(serverInventory("overworld"), new ItemStack(Material.BARRIER), 1));
+        listener.onInventoryClick(event(serverInventory("overworld"), new ItemStack(Material.BARRIER), 13));
 
         verify(player).sendMessage(Component.text("server-offline"));
         verify(bridge, never()).sendCreatePending(any(), any());
@@ -120,10 +135,26 @@ class RtpGuiListenerTest {
     void serverMenuDeniesWithoutServerPermission() {
         when(player.hasPermission("mcggrtp.server.survival-2")).thenReturn(false);
 
-        listener.onInventoryClick(event(serverInventory("overworld"), new ItemStack(Material.LIME_WOOL), 1));
+        listener.onInventoryClick(event(serverInventory("overworld"), new ItemStack(Material.LIME_WOOL), 13));
 
         verify(player).sendMessage(Component.text("no-permission"));
         verify(bridge, never()).sendCreatePending(any(), any());
+    }
+
+    @Test
+    void serverMenuBackButtonReopensMainMenu() {
+        listener.onInventoryClick(event(serverInventory("overworld"), new ItemStack(Material.ARROW), 22));
+
+        verify(bridge).openMainMenu(player);
+        verify(warmupService, never()).begin(any(), anyInt(), any());
+    }
+
+    @Test
+    void serverMenuIgnoresFillerSlotWithoutServerMapping() {
+        listener.onInventoryClick(event(serverInventory("overworld"), new ItemStack(Material.BLACK_STAINED_GLASS_PANE), 0));
+
+        verifyNoInteractions(bridge);
+        verifyNoInteractions(warmupService);
     }
 
     private InventoryClickEvent event(Inventory inventory, ItemStack currentItem, int slot) {
@@ -143,7 +174,10 @@ class RtpGuiListenerTest {
 
     private Inventory serverInventory(String dimension) {
         Inventory inventory = mock(Inventory.class);
-        when(inventory.getHolder()).thenReturn(new MenuHolder(new MenuContext(MenuContext.MenuType.SERVER, dimension)));
+        Map<Integer, String> slotMap = new LinkedHashMap<>();
+        slotMap.put(12, "survival-1");
+        slotMap.put(13, "survival-2");
+        when(inventory.getHolder()).thenReturn(new MenuHolder(new MenuContext(MenuContext.MenuType.SERVER, dimension, slotMap, 22)));
         return inventory;
     }
 
@@ -181,6 +215,23 @@ class RtpGuiListenerTest {
                 ),
                 300,
                 Map.of("world", new PaperConfig.WorldRtpSettings(true, 0, 0, 0, 0, 1, false, Set.of(Biome.PLAINS), Set.of()))
+        );
+    }
+
+    private PaperConfig configWithoutDimensionTargets() {
+        return new PaperConfig(
+                config().gui(),
+                config().serverMenu(),
+                config().sounds(),
+                config().dimensions(),
+                new PaperConfig.NetworkSettings(
+                        "survival-1",
+                        "mcggrtp.server.",
+                        Map.of("overworld", List.of()),
+                        config().network().servers()
+                ),
+                config().cooldownSeconds(),
+                config().worlds()
         );
     }
 }

@@ -35,7 +35,7 @@ public final class RtpGuiListener implements Listener {
             return;
         }
 
-        handleServerMenuClick(player, holder.context().dimension(), event.getSlot());
+        handleServerMenuClick(player, holder.context(), event.getSlot());
     }
 
     private void handleMainMenuClick(Player player, int slot) {
@@ -48,18 +48,29 @@ public final class RtpGuiListener implements Listener {
                         player.sendMessage(plugin.messages().text("no-permission"));
                         return;
                     }
+                    if (plugin.configModel().network().dimensions().getOrDefault(option.key(), List.of()).isEmpty()) {
+                        player.playSound(player.getLocation(), plugin.configModel().sounds().denied(), 1.0F, 1.0F);
+                        player.sendMessage(plugin.messages().text("dimension-unavailable"));
+                        return;
+                    }
                     player.playSound(player.getLocation(), plugin.configModel().sounds().menuClick(), 1.0F, 1.0F);
                     plugin.messageBridge().requestServerMenu(player, option.key());
                 });
     }
 
-    private void handleServerMenuClick(Player player, String dimension, int slot) {
-        List<String> servers = plugin.configModel().network().dimensions().getOrDefault(dimension, List.of());
-        if (slot < 0 || slot >= servers.size()) {
+    private void handleServerMenuClick(Player player, MenuContext context, int slot) {
+        if (context.isBackSlot(slot)) {
+            player.playSound(player.getLocation(), plugin.configModel().sounds().menuClick(), 1.0F, 1.0F);
+            plugin.messageBridge().openMainMenu(player);
             return;
         }
 
-        String targetServer = servers.get(slot);
+        String targetServer = context.serverAt(slot).orElse(null);
+        if (targetServer == null) {
+            return;
+        }
+        String dimension = context.dimension();
+
         var server = plugin.configModel().network().servers().get(targetServer);
         if (server == null) {
             return;

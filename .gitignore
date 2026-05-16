@@ -8,5 +8,7 @@ build/
 .integration/probe-velocity/
 
 integration/node_modules/
+graphify-out/
+.codex/
 
 *.log

@@ -48,6 +48,19 @@ class RtpMenusTest {
     }
 
     @Test
+    void mainMenuShowsServerCountWarmupAndClickHint() {
+        PlayerMock player = server.addPlayer("viewer");
+
+        RtpMenus.openMainMenu(player, plugin.configModel(), plugin.messages());
+
+        ItemStack overworldItem = player.getOpenInventory().getTopInventory().getItem(11);
+        assertEquals(Material.GRASS_BLOCK, overworldItem.getType());
+        assertTrue(loreLines(overworldItem).contains("Servers available: 3"));
+        assertTrue(loreLines(overworldItem).contains("Warmup: 5s"));
+        assertTrue(loreLines(overworldItem).contains("Click to choose a server."));
+    }
+
+    @Test
     void serverMenuShowsOnlineLockedAndOfflineStatesWithCounts() {
         PlayerMock player = server.addPlayer("viewer");
         assertEquals("mcggrtp.server.survival-2", plugin.configModel().network().servers().get("survival-2").permission());
@@ -65,19 +78,26 @@ class RtpMenusTest {
                 )
         );
 
-        ItemStack online = player.getOpenInventory().getTopInventory().getItem(0);
+        ItemStack online = player.getOpenInventory().getTopInventory().getItem(12);
         assertEquals(Material.LIME_WOOL, online.getType());
+        assertEquals("Survival 1 (Current)", plain.serialize(online.getItemMeta().displayName()));
         assertTrue(loreLines(online).contains("Players online: 4"));
+        assertTrue(loreLines(online).contains("This is your current server."));
         assertTrue(loreLines(online).contains("Click to RTP via survival-1"));
 
-        ItemStack locked = player.getOpenInventory().getTopInventory().getItem(1);
+        ItemStack locked = player.getOpenInventory().getTopInventory().getItem(13);
         assertEquals(Material.LIME_WOOL, locked.getType());
         assertEquals("Survival 2", plain.serialize(locked.getItemMeta().displayName()));
         assertTrue(loreLines(locked).contains("You do not have permission for this server."));
 
-        ItemStack offline = player.getOpenInventory().getTopInventory().getItem(2);
+        ItemStack offline = player.getOpenInventory().getTopInventory().getItem(14);
         assertEquals(Material.BARRIER, offline.getType());
         assertTrue(loreLines(offline).contains("This server is offline."));
+
+        ItemStack back = player.getOpenInventory().getTopInventory().getItem(22);
+        assertEquals(Material.ARROW, back.getType());
+        assertEquals("Back", plain.serialize(back.getItemMeta().displayName()));
+        assertEquals("Choose Server: Overworld", plain.serialize(player.getOpenInventory().title()));
     }
 
     private List<String> loreLines(ItemStack itemStack) {

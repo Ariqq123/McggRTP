@@ -21,22 +21,37 @@ class SafeLocationFinderTest {
     private final SafeLocationFinder finder = new SafeLocationFinder();
 
     @Test
-    void findsSafeLocationInOverworld() {
+    void createPlanPrioritizesGeneratedChunks() {
+        World world = world(World.Environment.NORMAL, 0, 256, 64);
+        when(world.isChunkGenerated(anyInt(), anyInt())).thenAnswer(invocation -> {
+            int chunkX = invocation.getArgument(0);
+            int chunkZ = invocation.getArgument(1);
+            return chunkX == 0 && chunkZ == 0;
+        });
+
+        SafeLocationFinder.SearchPlan plan = finder.createPlan(world, settings(true, false, 8, 32, 64, Set.of(), Set.of(Material.LAVA)));
+
+        assertTrue(plan.generatedFirst().stream().allMatch(candidate -> candidate.chunkX() == 0 && candidate.chunkZ() == 0));
+        assertTrue(plan.fallback().stream().allMatch(candidate -> candidate.chunkX() != 0 || candidate.chunkZ() != 0));
+    }
+
+    @Test
+    void validatesSafeLocationInOverworld() {
         World world = world(World.Environment.NORMAL, 0, 256, 64);
         Block feet = passableBlock(Biome.PLAINS, Material.AIR);
         Block head = passableBlock(Biome.PLAINS, Material.AIR);
         Block below = solidBlock(Material.STONE);
         stubColumn(world, 0, 0, 65, below, feet, head);
 
-        var settings = settings(true, false, Set.of(), Set.of(Material.LAVA));
-        var location = finder.find(world, settings);
+        SafeLocationFinder.SearchPlan plan = finder.createPlan(world, settings(true, false, 1, 0, 0, Set.of(), Set.of(Material.LAVA)));
+        var location = finder.validate(world, settings(true, false, 1, 0, 0, Set.of(), Set.of(Material.LAVA)), plan, new SafeLocationFinder.Candidate(0, 0, 0, 0));
 
         assertTrue(location.isPresent());
         assertEquals(65.0D, location.get().getY());
     }
 
     @Test
-    void findsSafeLocationInNetherBelowBedrockRoof() {
+    void validatesSafeLocationInNetherBelowBedrockRoof() {
         World world = world(World.Environment.NETHER, 0, 256, 0);
         Block unsafeFeet = passableBlock(Biome.NETHER_WASTES, Material.AIR);
         Block unsafeHead = passableBlock(Biome.NETHER_WASTES, Material.AIR);
@@ -47,8 +62,8 @@ class SafeLocationFinderTest {
         stubColumn(world, 0, 0, 120, unsafeBelow, unsafeFeet, unsafeHead);
         stubColumn(world, 0, 0, 119, safeBelow, safeFeet, safeHead);
 
-        var settings = settings(true, true, Set.of(), Set.of(Material.LAVA));
-        var location = finder.find(world, settings);
+        SafeLocationFinder.SearchPlan plan = finder.createPlan(world, settings(true, true, 1, 0, 0, Set.of(), Set.of(Material.LAVA)));
+        var location = finder.validate(world, settings(true, true, 1, 0, 0, Set.of(), Set.of(Material.LAVA)), plan, new SafeLocationFinder.Candidate(0, 0, 0, 0));
 
         assertTrue(location.isPresent());
         assertEquals(119.0D, location.get().getY());
@@ -62,9 +77,9 @@ class SafeLocationFinderTest {
         Block below = solidBlock(Material.STONE);
         stubColumn(world, 0, 0, 65, below, feet, head);
 
-        var settings = settings(true, false, Set.of(), Set.of(Material.LAVA));
+        SafeLocationFinder.SearchPlan plan = finder.createPlan(world, settings(true, false, 1, 0, 0, Set.of(), Set.of(Material.LAVA)));
 
-        assertTrue(finder.find(world, settings).isEmpty());
+        assertTrue(finder.validate(world, settings(true, false, 1, 0, 0, Set.of(), Set.of(Material.LAVA)), plan, new SafeLocationFinder.Candidate(0, 0, 0, 0)).isEmpty());
     }
 
     @Test
@@ -75,18 +90,19 @@ class SafeLocationFinderTest {
         Block below = solidBlock(Material.STONE);
         stubColumn(world, 0, 0, 65, below, feet, head);
 
-        var settings = settings(true, false, Set.of(Biome.DESERT), Set.of(Material.LAVA));
+        SafeLocationFinder.SearchPlan plan = finder.createPlan(world, settings(true, false, 1, 0, 0, Set.of(Biome.DESERT), Set.of(Material.LAVA)));
 
-        assertTrue(finder.find(world, settings).isEmpty());
+        assertTrue(finder.validate(world, settings(true, false, 1, 0, 0, Set.of(Biome.DESERT), Set.of(Material.LAVA)), plan, new SafeLocationFinder.Candidate(0, 0, 0, 0)).isEmpty());
     }
 
     @Test
-    void returnsEmptyWhenWorldIsDisabled() {
+    void createPlanReturnsNoCandidatesWhenWorldIsDisabled() {
         World world = world(World.Environment.NORMAL, 0, 256, 64);
 
-        var settings = settings(false, false, Set.of(), Set.of(Material.LAVA));
+        SafeLocationFinder.SearchPlan plan = finder.createPlan(world, settings(false, false, 2, 0, 0, Set.of(), Set.of(Material.LAVA)));
 
-        assertTrue(finder.find(world, settings).isEmpty());
+        assertTrue(plan.generatedFirst().isEmpty());
+        assertTrue(plan.fallback().isEmpty());
     }
 
     private World world(World.Environment environment, int minHeight, int maxHeight, int highestY) {
@@ -98,6 +114,7 @@ class SafeLocationFinderTest {
         when(world.getHighestBlockYAt(anyInt(), anyInt())).thenReturn(highestY);
         when(world.getWorldBorder()).thenReturn(border);
         when(border.isInside(any(Location.class))).thenReturn(true);
+        when(world.isChunkGenerated(anyInt(), anyInt())).thenReturn(true);
         Block defaultBlock = solidBlock(Material.BEDROCK);
         when(world.getBlockAt(anyInt(), anyInt(), anyInt())).thenReturn(defaultBlock);
         return world;
@@ -111,9 +128,12 @@ class SafeLocationFinderTest {
 
     private PaperConfig.WorldRtpSettings settings(boolean enabled,
                                                   boolean avoidBedrockRoof,
+                                                  int maxAttempts,
+                                                  int minRadius,
+                                                  int maxRadius,
                                                   Set<Biome> blacklistedBiomes,
                                                   Set<Material> unsafeBlocks) {
-        return new PaperConfig.WorldRtpSettings(enabled, 0, 0, 0, 0, 2, avoidBedrockRoof, blacklistedBiomes, unsafeBlocks);
+        return new PaperConfig.WorldRtpSettings(enabled, 0, 0, minRadius, maxRadius, maxAttempts, avoidBedrockRoof, blacklistedBiomes, unsafeBlocks);
     }
 
     private Block passableBlock(Biome biome, Material type) {
