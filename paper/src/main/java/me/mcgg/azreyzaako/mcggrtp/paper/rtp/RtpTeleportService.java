@@ -1,7 +1,7 @@
 package me.mcgg.azreyzaako.mcggrtp.paper.rtp;
 
-import java.util.Map;
 import java.util.Optional;
+import java.util.logging.Level;
 import me.mcgg.azreyzaako.mcggrtp.common.RtpResult;
 import me.mcgg.azreyzaako.mcggrtp.paper.McggRTPPaper;
 import me.mcgg.azreyzaako.mcggrtp.paper.MessageBundle;
@@ -12,17 +12,28 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 
 public final class RtpTeleportService {
+    private static final boolean DEBUG_SEARCH_LOGS = false;
+
     private final McggRTPPaper plugin;
     private final PaperConfig config;
     private final MessageBundle messages;
     private final PaperMessageBridge messageBridge;
-    private final SafeLocationFinder safeLocationFinder = new SafeLocationFinder();
+    private final SafeLocationFinder safeLocationFinder;
 
     public RtpTeleportService(McggRTPPaper plugin, PaperConfig config, MessageBundle messages, PaperMessageBridge messageBridge) {
+        this(plugin, config, messages, messageBridge, new SafeLocationFinder());
+    }
+
+    RtpTeleportService(McggRTPPaper plugin,
+                       PaperConfig config,
+                       MessageBundle messages,
+                       PaperMessageBridge messageBridge,
+                       SafeLocationFinder safeLocationFinder) {
         this.plugin = plugin;
         this.config = config;
         this.messages = messages;
         this.messageBridge = messageBridge;
+        this.safeLocationFinder = safeLocationFinder;
     }
 
     public void beginLocalTeleport(Player player, String worldName, String dimension) {
@@ -49,8 +60,15 @@ public final class RtpTeleportService {
         // Safe location search can be moderately expensive in bad terrain, so it
         // runs off-thread and only the final teleport hops back to the main server thread.
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
-            Optional<Location> destination = safeLocationFinder.find(world, settings);
+            long startedAt = System.nanoTime();
+            SafeLocationFinder.SearchResult searchResult = safeLocationFinder.search(world, settings);
+            Optional<Location> destination = searchResult.location();
+            logSearch(worldName, searchResult.attempts(), System.nanoTime() - startedAt);
             plugin.getServer().getScheduler().runTask(plugin, () -> {
+                if (!player.isOnline() || !player.isValid()) {
+                    return;
+                }
+
                 if (destination.isEmpty()) {
                     player.sendMessage(messages.text("teleport-failed"));
                     if (clearPending) {
@@ -80,5 +98,19 @@ public final class RtpTeleportService {
                 });
             });
         });
+    }
+
+    private void logSearch(String worldName, int attempts, long elapsedNanos) {
+        if (!DEBUG_SEARCH_LOGS && !plugin.getLogger().isLoggable(Level.FINE)) {
+            return;
+        }
+
+        double elapsedMillis = elapsedNanos / 1_000_000.0D;
+        plugin.getLogger().fine(String.format(
+                "RTP search world=%s attempts=%d durationMs=%.3f",
+                worldName,
+                attempts,
+                elapsedMillis
+        ));
     }
 }

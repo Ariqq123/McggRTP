@@ -1,72 +1,128 @@
 package me.mcgg.azreyzaako.mcggrtp.paper.rtp;
 
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import me.mcgg.azreyzaako.mcggrtp.paper.config.PaperConfig;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.block.Block;
+import org.bukkit.WorldBorder;
 import org.bukkit.block.Biome;
+import org.bukkit.block.Block;
 
 public final class SafeLocationFinder {
     public Optional<Location> find(World world, PaperConfig.WorldRtpSettings settings) {
+        return search(world, settings).location();
+    }
+
+    SearchResult search(World world, PaperConfig.WorldRtpSettings settings) {
         if (!settings.enabled()) {
-            return Optional.empty();
+            return new SearchResult(Optional.empty(), 0);
         }
 
+        SearchContext context = SearchContext.create(world, settings);
         ThreadLocalRandom random = ThreadLocalRandom.current();
-        for (int attempt = 0; attempt < settings.maxAttempts(); attempt++) {
-            Location candidate = randomCandidate(world, settings, random);
-            if (candidate == null || !world.getWorldBorder().isInside(candidate)) {
+        for (int attempt = 1; attempt <= context.maxAttempts(); attempt++) {
+            int radius = random.nextInt(context.minRadius(), context.maxRadius() + 1);
+            double angle = random.nextDouble(0.0D, Math.PI * 2.0D);
+            int x = context.centerX() + (int) Math.round(Math.cos(angle) * radius);
+            int z = context.centerZ() + (int) Math.round(Math.sin(angle) * radius);
+
+            if (context.environment() == World.Environment.NETHER) {
+                Optional<Location> candidate = scanNetherColumn(context, x, z);
+                if (candidate.isPresent()) {
+                    return new SearchResult(candidate, attempt);
+                }
                 continue;
             }
-            if (isSafe(candidate, settings)) {
-                return Optional.of(candidate);
+
+            int y = world.getHighestBlockYAt(x, z) + 1;
+            if (isSafe(context, x, y, z)) {
+                return new SearchResult(Optional.of(toLocation(world, x, y, z)), attempt);
+            }
+        }
+        return new SearchResult(Optional.empty(), context.maxAttempts());
+    }
+
+    private Optional<Location> scanNetherColumn(SearchContext context, int x, int z) {
+        for (int y = context.netherMaxY(); y > context.minHeight() + 1; y--) {
+            if (isSafe(context, x, y, z)) {
+                return Optional.of(toLocation(context.world(), x, y, z));
             }
         }
         return Optional.empty();
     }
 
-    private Location randomCandidate(World world, PaperConfig.WorldRtpSettings settings, ThreadLocalRandom random) {
-        int radius = random.nextInt(settings.minRadius(), settings.maxRadius() + 1);
-        double angle = random.nextDouble(0.0, Math.PI * 2);
-        int x = settings.centerX() + (int) Math.round(Math.cos(angle) * radius);
-        int z = settings.centerZ() + (int) Math.round(Math.sin(angle) * radius);
-
-        if (world.getEnvironment() == World.Environment.NETHER) {
-            return scanNetherColumn(world, x, z, settings);
+    private boolean isSafe(SearchContext context, int x, int y, int z) {
+        if (!isInsideBorder(context, x, y, z)) {
+            return false;
         }
 
-        int y = world.getHighestBlockYAt(x, z) + 1;
-        return new Location(world, x + 0.5D, y, z + 0.5D);
-    }
-
-    private Location scanNetherColumn(World world, int x, int z, PaperConfig.WorldRtpSettings settings) {
-        int maxY = settings.avoidBedrockRoof() ? Math.min(world.getMaxHeight() - 2, 120) : world.getMaxHeight() - 2;
-        for (int y = maxY; y > world.getMinHeight() + 1; y--) {
-            Location location = new Location(world, x + 0.5D, y, z + 0.5D);
-            if (isSafe(location, settings)) {
-                return location;
-            }
-        }
-        return null;
-    }
-
-    private boolean isSafe(Location location, PaperConfig.WorldRtpSettings settings) {
-        Block feet = location.getBlock();
-        Block head = feet.getRelative(0, 1, 0);
-        Block below = feet.getRelative(0, -1, 0);
+        Block feet = context.world().getBlockAt(x, y, z);
+        Block head = context.world().getBlockAt(x, y + 1, z);
+        Block below = context.world().getBlockAt(x, y - 1, z);
+        Material floorType = below.getType();
+        Material feetType = feet.getType();
         Biome biome = feet.getBiome();
 
         // The search accepts only places where the player can stand immediately
         // after teleporting without being clipped into blocks or dropped into hazards.
-        return below.getType().isSolid()
+        return floorType.isSolid()
                 && feet.isPassable()
                 && head.isPassable()
-                && !settings.unsafeBlocks().contains(below.getType())
-                && !settings.unsafeBlocks().contains(feet.getType())
-                && !settings.blacklistedBiomes().contains(biome)
-                && below.getType() != Material.BEDROCK;
+                && !context.unsafeBlocks().contains(floorType)
+                && !context.unsafeBlocks().contains(feetType)
+                && !context.blacklistedBiomes().contains(biome)
+                && floorType != Material.BEDROCK;
+    }
+
+    private boolean isInsideBorder(SearchContext context, int x, int y, int z) {
+        Location probe = context.borderProbe();
+        probe.set(x + 0.5D, y, z + 0.5D);
+        return context.worldBorder().isInside(probe);
+    }
+
+    private Location toLocation(World world, int x, int y, int z) {
+        return new Location(world, x + 0.5D, y, z + 0.5D);
+    }
+
+    record SearchResult(Optional<Location> location, int attempts) {
+    }
+
+    private record SearchContext(
+            World world,
+            WorldBorder worldBorder,
+            World.Environment environment,
+            int centerX,
+            int centerZ,
+            int minRadius,
+            int maxRadius,
+            int maxAttempts,
+            int minHeight,
+            int netherMaxY,
+            Set<Biome> blacklistedBiomes,
+            Set<Material> unsafeBlocks,
+            Location borderProbe
+    ) {
+        private static SearchContext create(World world, PaperConfig.WorldRtpSettings settings) {
+            int maxHeight = world.getMaxHeight() - 2;
+            int netherMaxY = settings.avoidBedrockRoof() ? Math.min(maxHeight, 120) : maxHeight;
+            return new SearchContext(
+                    world,
+                    world.getWorldBorder(),
+                    world.getEnvironment(),
+                    settings.centerX(),
+                    settings.centerZ(),
+                    settings.minRadius(),
+                    settings.maxRadius(),
+                    settings.maxAttempts(),
+                    world.getMinHeight(),
+                    netherMaxY,
+                    settings.blacklistedBiomes(),
+                    settings.unsafeBlocks(),
+                    new Location(world, 0.5D, world.getMinHeight(), 0.5D)
+            );
+        }
     }
 }
