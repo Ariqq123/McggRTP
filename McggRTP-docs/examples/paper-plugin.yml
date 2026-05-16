@@ -1,0 +1,23 @@
+name: McggRTP-Paper
+version: '${version}'
+main: me.mcgg.azreyzaako.mcggrtp.paper.McggRTPPaper
+author: azreyzaako
+api-version: '1.20'
+commands:
+  rtp:
+    description: Open the McggRTP menu.
+    usage: /rtp
+    permission: rtp.use
+permissions:
+  rtp.use:
+    default: true
+  rtp.dimension.overworld:
+    default: true
+  rtp.dimension.nether:
+    default: true
+  rtp.dimension.end:
+    default: true
+  rtp.bypass.cooldown:
+    default: op
+  rtp.admin.reload:
+    default: op

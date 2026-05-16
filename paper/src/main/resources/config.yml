@@ -1,0 +1,113 @@
+# McggRTP Paper config
+# Notes:
+# - This backend plugin talks to the Velocity plugin over the fixed plugin
+#   message channel `mcggrtp:main`. That channel is registered by the plugin
+#   in code; you do not create it manually here.
+# - `network.current-server` must match the server id used on Velocity for this
+#   backend, for example `survival-1` or `survival-2`.
+
+gui:
+  title: "&8Random Teleport"
+  size: 27
+  filler:
+    enabled: true
+    material: BLACK_STAINED_GLASS_PANE
+    name: " "
+
+main-menu:
+  overworld:
+    slot: 11
+    display-name: "&aOverworld"
+    material: GRASS_BLOCK
+    world-name: world
+    permission: "rtp.dimension.overworld"
+    lore:
+      - "&7Click to choose an overworld server."
+  nether:
+    slot: 13
+    display-name: "&cNether"
+    material: NETHERRACK
+    world-name: world_nether
+    permission: "rtp.dimension.nether"
+    lore:
+      - "&7Click to choose a nether server."
+      - "&cDangerous dimension."
+  end:
+    slot: 15
+    display-name: "&dThe End"
+    material: END_STONE
+    world-name: world_the_end
+    permission: "rtp.dimension.end"
+    lore:
+      - "&7Click to choose an end server."
+
+server-menu:
+  title: "&8Choose Server: {dimension}"
+  size: 27
+  online-material: LIME_WOOL
+  offline-material: BARRIER
+
+sounds:
+  menu-open: BLOCK_NOTE_BLOCK_PLING
+  menu-click: BLOCK_NOTE_BLOCK_PLING
+  denied: ENTITY_VILLAGER_NO
+  teleport-success: ENTITY_ENDERMAN_TELEPORT
+
+network:
+  # Must match the server name configured on Velocity for this backend.
+  current-server: "survival-1"
+  dimensions:
+    overworld:
+      servers: [ "survival-1", "survival-2", "survival-3" ]
+    nether:
+      servers: [ "survival-1", "survival-2" ]
+    end:
+      servers: [ "survival-1" ]
+  servers:
+    survival-1:
+      display-name: "&aSurvival 1"
+      permission: "rtp.server.survival1"
+    survival-2:
+      display-name: "&aSurvival 2"
+      permission: "rtp.server.survival2"
+    survival-3:
+      display-name: "&aSurvival 3"
+      permission: "rtp.server.survival3"
+
+rtp:
+  cooldown-seconds: 300
+  worlds:
+    world:
+      enabled: true
+      center-x: 0
+      center-z: 0
+      min-radius: 500
+      max-radius: 5000
+      max-attempts: 32
+      blacklisted-biomes:
+        - OCEAN
+        - DEEP_OCEAN
+      unsafe-blocks:
+        - LAVA
+        - FIRE
+        - CACTUS
+        - MAGMA_BLOCK
+    world_nether:
+      enabled: true
+      center-x: 0
+      center-z: 0
+      min-radius: 250
+      max-radius: 3000
+      max-attempts: 64
+      avoid-bedrock-roof: true
+      unsafe-blocks:
+        - LAVA
+        - FIRE
+        - MAGMA_BLOCK
+    world_the_end:
+      enabled: true
+      center-x: 0
+      center-z: 0
+      min-radius: 500
+      max-radius: 5000
+      max-attempts: 48

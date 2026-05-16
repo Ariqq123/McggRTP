@@ -1,0 +1,174 @@
+package me.mcgg.azreyzaako.mcggrtp.paper.gui;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import me.mcgg.azreyzaako.mcggrtp.common.RtpRequest;
+import me.mcgg.azreyzaako.mcggrtp.common.ServerStatusEntry;
+import me.mcgg.azreyzaako.mcggrtp.paper.McggRTPPaper;
+import me.mcgg.azreyzaako.mcggrtp.paper.MessageBundle;
+import me.mcgg.azreyzaako.mcggrtp.paper.config.PaperConfig;
+import me.mcgg.azreyzaako.mcggrtp.paper.messaging.PaperMessageBridge;
+import net.kyori.adventure.text.Component;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.Sound;
+import org.bukkit.block.Biome;
+import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+class RtpGuiListenerTest {
+    private McggRTPPaper plugin;
+    private PaperMessageBridge bridge;
+    private MessageBundle messages;
+    private Player player;
+    private RtpGuiListener listener;
+
+    @BeforeEach
+    void setUp() {
+        plugin = mock(McggRTPPaper.class);
+        bridge = mock(PaperMessageBridge.class);
+        messages = mock(MessageBundle.class);
+        player = mock(Player.class);
+        listener = new RtpGuiListener(plugin);
+
+        when(plugin.configModel()).thenReturn(config());
+        when(plugin.messageBridge()).thenReturn(bridge);
+        when(plugin.messages()).thenReturn(messages);
+        when(player.getLocation()).thenReturn(mock(Location.class));
+        when(messages.text("no-permission")).thenReturn(Component.text("no-permission"));
+        when(messages.text("server-offline")).thenReturn(Component.text("server-offline"));
+        when(messages.text(eq("sending-server"), eq("{server}"), any())).thenReturn(Component.text("sending-server"));
+        doNothing().when(player).playSound(any(Location.class), any(Sound.class), eq(1.0F), eq(1.0F));
+        doNothing().when(player).closeInventory();
+    }
+
+    @Test
+    void mainMenuDeniedWithoutDimensionPermission() {
+        when(player.hasPermission("rtp.dimension.overworld")).thenReturn(false);
+
+        listener.onInventoryClick(event(mainInventory(), new ItemStack(Material.GRASS_BLOCK), 10));
+
+        verify(player).sendMessage(Component.text("no-permission"));
+        verify(bridge, never()).requestServerMenu(any(), any());
+    }
+
+    @Test
+    void mainMenuRequestsServerMenuWhenAllowed() {
+        when(player.hasPermission("rtp.dimension.overworld")).thenReturn(true);
+
+        listener.onInventoryClick(event(mainInventory(), new ItemStack(Material.GRASS_BLOCK), 10));
+
+        verify(bridge).requestServerMenu(player, "overworld");
+    }
+
+    @Test
+    void serverMenuStartsLocalTeleportOnCurrentServer() {
+        when(bridge.resolveCurrentServer(player)).thenReturn("survival-1");
+
+        listener.onInventoryClick(event(serverInventory("overworld"), new ItemStack(Material.LIME_WOOL), 0));
+
+        verify(bridge).checkCooldownThenLocalTeleport(player, "world", "overworld");
+        verify(bridge, never()).sendCreatePending(any(), any());
+    }
+
+    @Test
+    void serverMenuCreatesPendingRequestForOtherServer() {
+        when(bridge.resolveCurrentServer(player)).thenReturn("survival-1");
+        when(player.hasPermission("rtp.server.survival2")).thenReturn(true);
+
+        listener.onInventoryClick(event(serverInventory("overworld"), new ItemStack(Material.LIME_WOOL), 1));
+
+        verify(bridge).sendCreatePending(eq(player), any(RtpRequest.class));
+        verify(player).sendMessage(Component.text("sending-server"));
+    }
+
+    @Test
+    void serverMenuDeniesOfflineServer() {
+        when(bridge.cachedStatus("overworld", "survival-2")).thenReturn(new ServerStatusEntry("survival-2", "&aSurvival 2", false, 0));
+
+        listener.onInventoryClick(event(serverInventory("overworld"), new ItemStack(Material.BARRIER), 1));
+
+        verify(player).sendMessage(Component.text("server-offline"));
+        verify(bridge, never()).sendCreatePending(any(), any());
+        verify(bridge, never()).checkCooldownThenLocalTeleport(any(), any(), any());
+    }
+
+    @Test
+    void serverMenuDeniesWithoutServerPermission() {
+        when(player.hasPermission("rtp.server.survival2")).thenReturn(false);
+
+        listener.onInventoryClick(event(serverInventory("overworld"), new ItemStack(Material.LIME_WOOL), 1));
+
+        verify(player).sendMessage(Component.text("no-permission"));
+        verify(bridge, never()).sendCreatePending(any(), any());
+    }
+
+    private InventoryClickEvent event(Inventory inventory, ItemStack currentItem, int slot) {
+        InventoryClickEvent event = mock(InventoryClickEvent.class);
+        when(event.getWhoClicked()).thenReturn(player);
+        when(event.getInventory()).thenReturn(inventory);
+        when(event.getCurrentItem()).thenReturn(currentItem);
+        when(event.getSlot()).thenReturn(slot);
+        return event;
+    }
+
+    private Inventory mainInventory() {
+        Inventory inventory = mock(Inventory.class);
+        when(inventory.getHolder()).thenReturn(new MenuHolder(new MenuContext(MenuContext.MenuType.MAIN, "")));
+        return inventory;
+    }
+
+    private Inventory serverInventory(String dimension) {
+        Inventory inventory = mock(Inventory.class);
+        when(inventory.getHolder()).thenReturn(new MenuHolder(new MenuContext(MenuContext.MenuType.SERVER, dimension)));
+        return inventory;
+    }
+
+    private PaperConfig config() {
+        return new PaperConfig(
+                new PaperConfig.GuiSettings("&8RTP", 27, true, Material.BLACK_STAINED_GLASS_PANE, " "),
+                new PaperConfig.ServerMenuSettings("&8Choose", 27, Material.LIME_WOOL, Material.BARRIER),
+                new PaperConfig.SoundSettings(
+                        Sound.BLOCK_NOTE_BLOCK_PLING,
+                        Sound.BLOCK_NOTE_BLOCK_PLING,
+                        Sound.ENTITY_VILLAGER_NO,
+                        Sound.ENTITY_ENDERMAN_TELEPORT
+                ),
+                Map.of(
+                        "overworld",
+                        new PaperConfig.DimensionOption(
+                                "overworld",
+                                10,
+                                "&aOverworld",
+                                Material.GRASS_BLOCK,
+                                "world",
+                                "rtp.dimension.overworld",
+                                List.of("&7Teleport")
+                        )
+                ),
+                new PaperConfig.NetworkSettings(
+                        "survival-1",
+                        Map.of("overworld", List.of("survival-1", "survival-2")),
+                        Map.of(
+                                "survival-1", new PaperConfig.NetworkServer("survival-1", "&aSurvival 1", ""),
+                                "survival-2", new PaperConfig.NetworkServer("survival-2", "&aSurvival 2", "rtp.server.survival2")
+                        )
+                ),
+                300,
+                Map.of("world", new PaperConfig.WorldRtpSettings(true, 0, 0, 0, 0, 1, false, Set.of(Biome.PLAINS), Set.of()))
+        );
+    }
+}

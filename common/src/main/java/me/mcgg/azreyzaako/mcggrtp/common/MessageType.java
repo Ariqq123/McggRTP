@@ -1,0 +1,15 @@
+package me.mcgg.azreyzaako.mcggrtp.common;
+
+public enum MessageType {
+    CREATE_PENDING_RTP,
+    CHECK_PENDING_RTP,
+    PENDING_RTP_RESPONSE,
+    CLEAR_PENDING_RTP,
+    RTP_RESULT,
+    CHECK_COOLDOWN,
+    COOLDOWN_RESPONSE,
+    REQUEST_SERVER_STATUS,
+    SERVER_STATUS_RESPONSE,
+    RELOAD_CONFIG,
+    COMMAND_ACK
+}

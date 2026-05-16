@@ -1,0 +1,12 @@
+.gradle/
+build/
+*/build/
+
+.integration/runtime/
+.integration/downloads/
+.integration/probe-paper/
+.integration/probe-velocity/
+
+integration/node_modules/
+
+*.log
