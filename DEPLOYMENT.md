@@ -254,6 +254,7 @@ If plugin message flow fails:
 If reload does not sync:
 
 - `/rtp reload` reloads Paper locally and asks Velocity to reload proxy config
+- Paper also merges any newly added default keys into `config.yml` and `messages.yml` during startup and `/rtp reload`, while keeping your existing values
 - check both proxy and backend logs for reload errors
 
 ## Files to Use

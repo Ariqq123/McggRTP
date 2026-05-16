@@ -4,6 +4,7 @@ import me.mcgg.azreyzaako.mcggrtp.common.McggRTPChannels;
 import me.mcgg.azreyzaako.mcggrtp.paper.command.RtpCommand;
 import me.mcgg.azreyzaako.mcggrtp.paper.config.PaperConfig;
 import me.mcgg.azreyzaako.mcggrtp.paper.config.PaperConfigLoader;
+import me.mcgg.azreyzaako.mcggrtp.paper.config.ResourceConfigUpdater;
 import me.mcgg.azreyzaako.mcggrtp.paper.gui.RtpGuiListener;
 import me.mcgg.azreyzaako.mcggrtp.paper.listener.PendingRtpJoinListener;
 import me.mcgg.azreyzaako.mcggrtp.paper.listener.RtpWarmupListener;
@@ -22,8 +23,7 @@ public class McggRTPPaper extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        saveDefaultConfig();
-        saveResource("messages.yml", false);
+        updateBundledConfigs();
         reloadPluginState();
         this.messages = new MessageBundle(this);
         this.messageBridge = new PaperMessageBridge(this);
@@ -71,11 +71,18 @@ public class McggRTPPaper extends JavaPlugin {
     }
 
     public void reloadPluginState() {
+        updateBundledConfigs();
         PaperConfigLoader configLoader = new PaperConfigLoader(this);
         this.configModel = configLoader.load();
         if (this.messages != null) {
             this.messages.reload();
         }
+    }
+
+    private void updateBundledConfigs() {
+        saveDefaultConfig();
+        ResourceConfigUpdater.updateYamlResource(this, "config.yml");
+        ResourceConfigUpdater.updateYamlResource(this, "messages.yml");
     }
 
     private void registerRtpCommand(RtpCommand command) {

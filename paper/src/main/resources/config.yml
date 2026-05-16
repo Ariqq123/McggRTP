@@ -5,6 +5,8 @@
 #   in code; you do not create it manually here.
 # - `network.current-server` must match the server id used on Velocity for this
 #   backend, for example `survival-1` or `survival-2`.
+# - On startup and `/rtp reload`, McggRTP merges any newly added default keys
+#   into this file without overwriting your existing values.
 
 gui:
   title: "&8Random Teleport"
