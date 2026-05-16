@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 import java.util.Map;
@@ -56,6 +57,18 @@ class PaperMessageBridgeTest {
     }
 
     @Test
+    void duplicatePendingResponsesOnlyStartTeleportOnce() {
+        byte[] payload = MessageCodec.encodePendingRtpResponse(
+                new PendingRtpResponse(true, "req-1", "world", "overworld")
+        );
+
+        bridge.onPluginMessageReceived("mcggrtp:main", player, payload);
+        bridge.onPluginMessageReceived("mcggrtp:main", player, payload);
+
+        verify(plugin.teleportService(), times(1)).beginPendingTeleport(player, "req-1", "world", "overworld");
+    }
+
+    @Test
     void inactiveCooldownResponseStartsLocalTeleport() {
         java.util.UUID playerId = java.util.UUID.randomUUID();
         when(player.getUniqueId()).thenReturn(playerId);
@@ -93,6 +106,7 @@ class PaperMessageBridgeTest {
 
     private PaperConfig config() {
         return new PaperConfig(
+                new PaperConfig.DebugSettings(false),
                 new PaperConfig.GuiSettings("&8RTP", 27, true, Material.BLACK_STAINED_GLASS_PANE, " "),
                 new PaperConfig.ServerMenuSettings("&8Choose", 27, Material.LIME_WOOL, Material.BARRIER),
                 new PaperConfig.SoundSettings(Sound.BLOCK_NOTE_BLOCK_PLING, Sound.BLOCK_NOTE_BLOCK_PLING, Sound.ENTITY_VILLAGER_NO, Sound.ENTITY_ENDERMAN_TELEPORT),

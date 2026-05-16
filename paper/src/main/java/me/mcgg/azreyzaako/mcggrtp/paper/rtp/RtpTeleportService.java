@@ -3,7 +3,6 @@ package me.mcgg.azreyzaako.mcggrtp.paper.rtp;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.logging.Level;
 import me.mcgg.azreyzaako.mcggrtp.common.RtpResult;
 import me.mcgg.azreyzaako.mcggrtp.paper.McggRTPPaper;
 import me.mcgg.azreyzaako.mcggrtp.paper.MessageBundle;
@@ -15,8 +14,6 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 
 public final class RtpTeleportService {
-    private static final boolean DEBUG_SEARCH_LOGS = false;
-
     private final McggRTPPaper plugin;
     private final PaperConfig config;
     private final MessageBundle messages;
@@ -50,7 +47,16 @@ public final class RtpTeleportService {
     private void doTeleport(Player player, String requestId, String worldName, boolean clearPending) {
         World world = plugin.getServer().getWorld(worldName);
         PaperConfig.WorldRtpSettings settings = config.worlds().get(worldName);
+        plugin.debug("Starting RTP search player=%s requestId=%s world=%s clearPending=%s",
+                player.getUniqueId(),
+                requestId,
+                worldName,
+                clearPending);
         if (world == null || settings == null) {
+            plugin.debug("Aborting RTP search player=%s requestId=%s world=%s reason=world-unavailable",
+                    player.getUniqueId(),
+                    requestId,
+                    worldName);
             player.sendMessage(messages.text("world-unavailable"));
             if (clearPending) {
                 messageBridge.sendResult(player, new RtpResult(requestId, player.getUniqueId(), false, "Target world unavailable."));
@@ -91,6 +97,9 @@ public final class RtpTeleportService {
                                    boolean clearPending,
                                    long startedAt) {
         if (!player.isOnline() || !player.isValid()) {
+            plugin.debug("Stopping RTP candidate processing player=%s requestId=%s reason=player-offline-or-invalid",
+                    player.getUniqueId(),
+                    requestId);
             return;
         }
 
@@ -110,6 +119,11 @@ public final class RtpTeleportService {
             attempts = primary.size() + fallbackIndex + 1;
         } else {
             logSearch(worldName, plan.maxAttempts(), System.nanoTime() - startedAt, false);
+            plugin.debug("RTP search exhausted player=%s requestId=%s world=%s attempts=%d",
+                    player.getUniqueId(),
+                    requestId,
+                    worldName,
+                    plan.maxAttempts());
             player.sendMessage(messages.text("teleport-failed"));
             if (clearPending) {
                 messageBridge.sendResult(player, new RtpResult(requestId, player.getUniqueId(), false, "Could not find a safe location."));
@@ -119,14 +133,34 @@ public final class RtpTeleportService {
         }
 
         CompletableFuture<Chunk> chunkFuture = world.getChunkAtAsync(candidate.chunkX(), candidate.chunkZ(), generateChunk);
+        plugin.debug("Loading RTP chunk player=%s requestId=%s world=%s chunkX=%d chunkZ=%d generate=%s attempt=%d",
+                player.getUniqueId(),
+                requestId,
+                worldName,
+                candidate.chunkX(),
+                candidate.chunkZ(),
+                generateChunk,
+                attempts);
         chunkFuture.thenAccept(chunk -> plugin.getServer().getScheduler().runTask(plugin, () -> {
             if (!player.isOnline() || !player.isValid()) {
+                plugin.debug("Aborting RTP completion player=%s requestId=%s reason=player-offline-or-invalid-after-chunk-load",
+                        player.getUniqueId(),
+                        requestId);
                 return;
             }
 
             Optional<Location> destination = safeLocationFinder.validate(world, settings, plan, candidate);
             if (destination.isPresent()) {
                 logSearch(worldName, attempts, System.nanoTime() - startedAt, generatedFirstHit);
+                plugin.debug("Validated RTP destination player=%s requestId=%s world=%s x=%.1f y=%.1f z=%.1f attempt=%d mode=%s",
+                        player.getUniqueId(),
+                        requestId,
+                        worldName,
+                        destination.get().getX(),
+                        destination.get().getY(),
+                        destination.get().getZ(),
+                        attempts,
+                        generatedFirstHit ? "generated-first" : "fallback");
                 completeTeleport(player, requestId, destination.get(), clearPending);
                 return;
             }
@@ -153,9 +187,19 @@ public final class RtpTeleportService {
     private void completeTeleport(Player player, String requestId, Location destination, boolean clearPending) {
         player.teleportAsync(destination).thenAccept(success -> {
             if (!player.isOnline() || !player.isValid()) {
+                plugin.debug("Discarding teleport completion player=%s requestId=%s reason=player-offline-or-invalid-after-teleport",
+                        player.getUniqueId(),
+                        requestId);
                 return;
             }
 
+            plugin.debug("Teleport completion player=%s requestId=%s success=%s x=%.1f y=%.1f z=%.1f",
+                    player.getUniqueId(),
+                    requestId,
+                    success,
+                    destination.getX(),
+                    destination.getY(),
+                    destination.getZ());
             if (success) {
                 if (!clearPending) {
                     messageBridge.sendResult(player, new RtpResult("", player.getUniqueId(), true, ""));
@@ -174,17 +218,17 @@ public final class RtpTeleportService {
     }
 
     private void logSearch(String worldName, int attempts, long elapsedNanos, boolean generatedFirstHit) {
-        if (!DEBUG_SEARCH_LOGS && !plugin.getLogger().isLoggable(Level.FINE)) {
+        if (!plugin.debugEnabled()) {
             return;
         }
 
         double elapsedMillis = elapsedNanos / 1_000_000.0D;
-        plugin.getLogger().fine(String.format(
-                "RTP search world=%s attempts=%d durationMs=%.3f mode=%s",
+        plugin.debug(
+                "RTP search timing world=%s attempts=%d durationMs=%.3f mode=%s",
                 worldName,
                 attempts,
                 elapsedMillis,
                 generatedFirstHit ? "generated-first" : "fallback"
-        ));
+        );
     }
 }

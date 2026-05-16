@@ -23,6 +23,7 @@ public final class PaperConfigLoader {
     public PaperConfig load() {
         plugin.reloadConfig();
         ConfigurationSection root = plugin.getConfig();
+        ConfigurationSection debug = root.getConfigurationSection("debug");
 
         ConfigurationSection gui = root.getConfigurationSection("gui");
         ConfigurationSection filler = gui == null ? null : gui.getConfigurationSection("filler");
@@ -130,6 +131,7 @@ public final class PaperConfigLoader {
         }
 
         return new PaperConfig(
+                new PaperConfig.DebugSettings(debug != null && debug.getBoolean("enabled", false)),
                 guiSettings,
                 serverMenuSettings,
                 soundSettings,

@@ -70,6 +70,7 @@ class VelocityMessageListenerTest {
         pendingRtpManager = new PendingRtpManager(Clock.systemUTC(), 30);
         cooldownManager = new CooldownManager(Clock.systemUTC(), true, 300);
         config = new VelocityConfig(
+                false,
                 "mcggrtp:main",
                 30,
                 true,

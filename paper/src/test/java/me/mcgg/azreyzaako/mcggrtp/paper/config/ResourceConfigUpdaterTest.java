@@ -38,6 +38,7 @@ class ResourceConfigUpdaterTest {
 
         YamlConfiguration customConfig = new YamlConfiguration();
         customConfig.set("gui.title", "&1Custom RTP");
+        customConfig.set("debug.enabled", true);
         customConfig.set("gui.size", 27);
         customConfig.set("gui.filler.enabled", false);
         customConfig.set("main-menu.overworld.slot", 11);
@@ -63,6 +64,7 @@ class ResourceConfigUpdaterTest {
         YamlConfiguration updatedMessages = YamlConfiguration.loadConfiguration(messagesFile);
 
         assertEquals("&1Custom RTP", updatedConfig.getString("gui.title"));
+        assertTrue(updatedConfig.getBoolean("debug.enabled"));
         assertEquals("custom-1", updatedConfig.getString("network.current-server"));
         assertEquals(9, updatedConfig.getInt("main-menu.overworld.warmup-seconds"));
         assertTrue(updatedConfig.contains("main-menu.nether.display-name"));
@@ -78,6 +80,7 @@ class ResourceConfigUpdaterTest {
         assertEquals("&eBack", updatedMessages.getString("menu-back-name"));
 
         assertEquals("Custom RTP", plain.serialize(plugin.messages().raw(plugin.getConfig().getString("gui.title"))));
+        assertTrue(plugin.configModel().debug().enabled());
         assertEquals("&2Custom Overworld", plugin.configModel().dimensions().get("overworld").displayName());
         assertTrue(plugin.configModel().dimensions().containsKey("nether"));
         assertEquals(Material.LIME_WOOL, plugin.configModel().serverMenu().onlineMaterial());

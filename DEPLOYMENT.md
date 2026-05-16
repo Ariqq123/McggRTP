@@ -46,6 +46,7 @@ Edit that file to match your real network.
 
 Important sections:
 
+- `debug.enabled`
 - `settings.plugin-message-channel`
 - `cooldowns`
 - `servers`
@@ -54,6 +55,9 @@ Important sections:
 Example:
 
 ```yml
+debug:
+  enabled: false
+
 settings:
   plugin-message-channel: "mcggrtp:main"
   pending-expire-seconds: 30
@@ -118,6 +122,7 @@ Start each Paper server once. It will generate:
 
 In each backend `plugins/McggRTP-Paper/config.yml`, set:
 
+- `debug.enabled`
 - `network.current-server`
 - dimension world names
 - GUI/server mappings
@@ -127,6 +132,9 @@ In each backend `plugins/McggRTP-Paper/config.yml`, set:
 Example for `survival-1`:
 
 ```yml
+debug:
+  enabled: false
+
 network:
   current-server: "survival-1"
   server-permission-prefix: "mcggrtp.server."
@@ -154,6 +162,11 @@ network:
 Warmup is enforced on the Paper backend before either:
 - a same-server RTP cooldown check and local teleport
 - a cross-server pending request to Velocity
+
+If you are troubleshooting RTP or proxy messaging, set `debug.enabled: true` on
+both the Velocity and Paper configs. McggRTP will emit verbose logs for
+pending-RTP checks, cooldown checks, server-status requests, transfers, and RTP
+search/teleport completion.
 
 Server permissions are dynamic by default. If you omit `permission` for a server,
 McggRTP derives `<server-permission-prefix><server-id>`.

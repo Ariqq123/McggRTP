@@ -8,6 +8,10 @@
 # - On startup and `/rtp reload`, McggRTP merges any newly added default keys
 #   into this file without overwriting your existing values.
 
+debug:
+  # Enables verbose McggRTP logs for GUI, proxy messaging, and RTP flow.
+  enabled: false
+
 gui:
   title: "&8Random Teleport"
   size: 27

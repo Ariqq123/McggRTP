@@ -80,6 +80,17 @@ public final class McggRTPVelocity {
         return logger;
     }
 
+    public boolean debugEnabled() {
+        return config != null && config.debugEnabled();
+    }
+
+    public void debug(String message, Object... args) {
+        if (!debugEnabled()) {
+            return;
+        }
+        logger.info("[debug] {}", String.format(message, args));
+    }
+
     public VelocityConfig config() {
         return config;
     }
@@ -98,5 +109,10 @@ public final class McggRTPVelocity {
                 cooldownManager,
                 serverTransferService
         );
+        debug("Reloaded Velocity config: channel=%s debug=%s servers=%d dimensions=%d",
+                config.channel(),
+                config.debugEnabled(),
+                config.servers().size(),
+                config.dimensions().size());
     }
 }

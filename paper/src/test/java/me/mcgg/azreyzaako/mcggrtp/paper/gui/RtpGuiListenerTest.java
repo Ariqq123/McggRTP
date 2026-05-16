@@ -183,6 +183,7 @@ class RtpGuiListenerTest {
 
     private PaperConfig config() {
         return new PaperConfig(
+                new PaperConfig.DebugSettings(false),
                 new PaperConfig.GuiSettings("&8RTP", 27, true, Material.BLACK_STAINED_GLASS_PANE, " "),
                 new PaperConfig.ServerMenuSettings("&8Choose", 27, Material.LIME_WOOL, Material.BARRIER),
                 new PaperConfig.SoundSettings(
@@ -220,6 +221,7 @@ class RtpGuiListenerTest {
 
     private PaperConfig configWithoutDimensionTargets() {
         return new PaperConfig(
+                config().debug(),
                 config().gui(),
                 config().serverMenu(),
                 config().sounds(),

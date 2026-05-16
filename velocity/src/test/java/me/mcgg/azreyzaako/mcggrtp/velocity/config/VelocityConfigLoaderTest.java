@@ -1,6 +1,7 @@
 package me.mcgg.azreyzaako.mcggrtp.velocity.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
@@ -20,7 +21,40 @@ class VelocityConfigLoaderTest {
         VelocityConfig config = loader.load();
 
         assertTrue(Files.exists(tempDir.resolve("config.yml")));
+        assertFalse(config.debugEnabled());
         assertEquals("mcggrtp.server.survival-2", config.servers().get("survival-2").permission());
+    }
+
+    @Test
+    void loadReadsDebugModeWhenEnabled() throws Exception {
+        Path configPath = tempDir.resolve("config.yml");
+        Files.writeString(configPath, """
+                debug:
+                  enabled: true
+
+                settings:
+                  plugin-message-channel: "mcggrtp:main"
+                  pending-expire-seconds: 30
+
+                cooldowns:
+                  enabled: true
+                  default-seconds: 300
+                  bypass-permission: "mcggrtp.bypass.cooldown"
+
+                servers:
+                  survival-1:
+                    display-name: "&aSurvival 1"
+                    enabled: true
+
+                dimensions:
+                  overworld:
+                    servers: ["survival-1"]
+                """);
+        VelocityConfigLoader loader = new VelocityConfigLoader(tempDir, org.mockito.Mockito.mock(Logger.class));
+
+        VelocityConfig config = loader.load();
+
+        assertTrue(config.debugEnabled());
     }
 
     @Test

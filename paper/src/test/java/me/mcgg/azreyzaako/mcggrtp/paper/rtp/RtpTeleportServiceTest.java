@@ -159,6 +159,7 @@ class RtpTeleportServiceTest {
 
     private PaperConfig config() {
         return new PaperConfig(
+                new PaperConfig.DebugSettings(false),
                 new PaperConfig.GuiSettings("&8RTP", 27, true, org.bukkit.Material.BLACK_STAINED_GLASS_PANE, " "),
                 new PaperConfig.ServerMenuSettings("&8Choose", 27, org.bukkit.Material.LIME_WOOL, org.bukkit.Material.BARRIER),
                 new PaperConfig.SoundSettings(

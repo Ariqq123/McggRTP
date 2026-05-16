@@ -39,6 +39,10 @@ public class McggRTPPaper extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new PendingRtpJoinListener(this, messageBridge), this);
         getServer().getPluginManager().registerEvents(new RtpWarmupListener(warmupService), this);
         getLogger().info("McggRTP Paper enabled");
+        debug("Paper state loaded: currentServer=%s dimensions=%d worlds=%d",
+                configModel.network().currentServer(),
+                configModel.dimensions().size(),
+                configModel.worlds().size());
     }
 
     @Override
@@ -70,6 +74,17 @@ public class McggRTPPaper extends JavaPlugin {
         return warmupService;
     }
 
+    public boolean debugEnabled() {
+        return configModel != null && configModel.debug().enabled();
+    }
+
+    public void debug(String message, Object... args) {
+        if (!debugEnabled()) {
+            return;
+        }
+        getLogger().info("[debug] " + String.format(message, args));
+    }
+
     public void reloadPluginState() {
         updateBundledConfigs();
         PaperConfigLoader configLoader = new PaperConfigLoader(this);
@@ -77,6 +92,9 @@ public class McggRTPPaper extends JavaPlugin {
         if (this.messages != null) {
             this.messages.reload();
         }
+        debug("Reloaded Paper config: currentServer=%s debug=%s",
+                configModel.network().currentServer(),
+                configModel.debug().enabled());
     }
 
     private void updateBundledConfigs() {

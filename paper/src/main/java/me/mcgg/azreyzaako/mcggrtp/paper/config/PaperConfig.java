@@ -8,6 +8,7 @@ import org.bukkit.Material;
 import org.bukkit.block.Biome;
 
 public record PaperConfig(
+        DebugSettings debug,
         GuiSettings gui,
         ServerMenuSettings serverMenu,
         SoundSettings sounds,
@@ -16,6 +17,9 @@ public record PaperConfig(
         int cooldownSeconds,
         Map<String, WorldRtpSettings> worlds
 ) {
+    public record DebugSettings(boolean enabled) {
+    }
+
     public record GuiSettings(String title, int size, boolean fillerEnabled, Material fillerMaterial, String fillerName) {
     }
 

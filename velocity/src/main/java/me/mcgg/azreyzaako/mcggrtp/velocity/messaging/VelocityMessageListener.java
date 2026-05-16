@@ -55,6 +55,7 @@ public final class VelocityMessageListener {
 
     public void handle(byte[] payload) {
         MessageType type = MessageCodec.peekType(payload);
+        plugin.debug("Received proxy message type=%s", type);
         switch (type) {
             case CREATE_PENDING_RTP -> handleCreatePending(payload);
             case CHECK_PENDING_RTP -> handleCheckPending(payload);
@@ -69,8 +70,15 @@ public final class VelocityMessageListener {
 
     private void handleCreatePending(byte[] payload) {
         RtpRequest request = MessageCodec.decodeCreatePendingRtp(payload);
+        plugin.debug("Handling CREATE_PENDING_RTP player=%s requestId=%s targetServer=%s targetWorld=%s dimension=%s",
+                request.playerUuid(),
+                request.requestId(),
+                request.targetServer(),
+                request.targetWorld(),
+                request.dimension());
         Optional<Player> playerOptional = proxyServer.getPlayer(request.playerUuid());
         if (playerOptional.isEmpty()) {
+            plugin.debug("Dropping CREATE_PENDING_RTP requestId=%s reason=player-not-found", request.requestId());
             return;
         }
 
@@ -78,12 +86,19 @@ public final class VelocityMessageListener {
         if (!player.hasPermission(plugin.config().bypassPermission())) {
             CooldownManager.CooldownState cooldownState = cooldownManager.getState(player.getUniqueId());
             if (cooldownState.active()) {
+                plugin.debug("Rejecting CREATE_PENDING_RTP player=%s requestId=%s reason=cooldown remaining=%d",
+                        player.getUniqueId(),
+                        request.requestId(),
+                        cooldownState.remainingSeconds());
                 player.sendMessage(text("&cYou must wait &e" + cooldownState.remainingSeconds() + "&c seconds before using RTP again."));
                 return;
             }
         }
 
         if (!serverTransferService.serverExists(request.targetServer())) {
+            plugin.debug("Rejecting CREATE_PENDING_RTP player=%s requestId=%s reason=target-server-missing",
+                    player.getUniqueId(),
+                    request.requestId());
             player.sendMessage(text("&cThat server is not available."));
             return;
         }
@@ -97,9 +112,18 @@ public final class VelocityMessageListener {
                 System.currentTimeMillis()
         ));
         cooldownManager.markUsed(player.getUniqueId());
+        plugin.debug("Stored pending RTP player=%s requestId=%s targetServer=%s",
+                player.getUniqueId(),
+                request.requestId(),
+                request.targetServer());
         player.sendMessage(text("&7Sending you to &e" + request.targetServer() + "&7..."));
 
         serverTransferService.connect(player, request.targetServer()).thenAccept(success -> {
+            plugin.debug("Transfer result player=%s requestId=%s targetServer=%s success=%s",
+                    player.getUniqueId(),
+                    request.requestId(),
+                    request.targetServer(),
+                    success);
             if (!success) {
                 pendingRtpManager.clear(player.getUniqueId(), request.requestId());
                 player.sendMessage(text("&cCould not connect you to that server."));
@@ -109,8 +133,13 @@ public final class VelocityMessageListener {
 
     private void handleCheckPending(byte[] payload) {
         MessageCodec.CheckPendingRtp request = MessageCodec.decodeCheckPendingRtp(payload);
-        PendingRtpResponse response = pendingRtpManager.findFor(request.playerUuid(), request.currentServer())
-                .map(pending -> new PendingRtpResponse(true, pending.requestId(), pending.targetWorld(), pending.dimension()))
+        Optional<PendingRtp> pending = pendingRtpManager.findFor(request.playerUuid(), request.currentServer());
+        plugin.debug("Handling CHECK_PENDING_RTP player=%s currentServer=%s found=%s",
+                request.playerUuid(),
+                request.currentServer(),
+                pending.isPresent());
+        PendingRtpResponse response = pending
+                .map(foundPending -> new PendingRtpResponse(true, foundPending.requestId(), foundPending.targetWorld(), foundPending.dimension()))
                 .orElseGet(PendingRtpResponse::empty);
 
         proxyServer.getPlayer(request.playerUuid()).ifPresent(player -> plugin.sendToPaper(player, MessageCodec.encodePendingRtpResponse(response)));
@@ -118,11 +147,19 @@ public final class VelocityMessageListener {
 
     private void handleClearPending(byte[] payload) {
         MessageCodec.ClearPendingRtp clearPending = MessageCodec.decodeClearPendingRtp(payload);
+        plugin.debug("Handling CLEAR_PENDING_RTP player=%s requestId=%s",
+                clearPending.playerUuid(),
+                clearPending.requestId());
         pendingRtpManager.clear(clearPending.playerUuid(), clearPending.requestId());
     }
 
     private void handleResult(byte[] payload) {
         RtpResult result = MessageCodec.decodeRtpResult(payload);
+        plugin.debug("Handling RTP_RESULT player=%s requestId=%s success=%s reason=%s",
+                result.playerUuid(),
+                result.requestId(),
+                result.success(),
+                result.reason());
         pendingRtpManager.clear(result.playerUuid(), result.requestId());
         if (result.success()) {
             cooldownManager.markUsed(result.playerUuid());
@@ -139,6 +176,11 @@ public final class VelocityMessageListener {
     private void handleCheckCooldown(byte[] payload) {
         CooldownCheck check = MessageCodec.decodeCheckCooldown(payload);
         CooldownManager.CooldownState state = cooldownManager.getState(check.playerUuid());
+        plugin.debug("Handling CHECK_COOLDOWN player=%s requestId=%s active=%s remaining=%d",
+                check.playerUuid(),
+                check.requestId(),
+                state.active(),
+                state.remainingSeconds());
         proxyServer.getPlayer(check.playerUuid()).ifPresent(player -> plugin.sendToPaper(player,
                 MessageCodec.encodeCooldownResponse(new CooldownResponse(check.requestId(), state.active(), state.remainingSeconds()))));
     }
@@ -146,6 +188,11 @@ public final class VelocityMessageListener {
     private void handleServerStatusRequest(byte[] payload) {
         ServerStatusRequest request = MessageCodec.decodeServerStatusRequest(payload);
         List<String> configuredServers = plugin.config().dimensions().getOrDefault(request.dimension(), List.of());
+        plugin.debug("Handling REQUEST_SERVER_STATUS player=%s dimension=%s configuredServers=%d requestId=%s",
+                request.playerUuid(),
+                request.dimension(),
+                configuredServers.size(),
+                request.requestId());
         List<CompletableFuture<ServerStatusEntry>> entryFutures = new ArrayList<>(configuredServers.size());
         for (String serverId : configuredServers) {
             var configured = plugin.config().servers().get(serverId);
@@ -185,11 +232,19 @@ public final class VelocityMessageListener {
                                     request.dimension(),
                                     List.copyOf(entries)
                             ))));
+                    plugin.debug("Sent SERVER_STATUS_RESPONSE player=%s dimension=%s entries=%d requestId=%s",
+                            request.playerUuid(),
+                            request.dimension(),
+                            entries.size(),
+                            request.requestId());
                 });
     }
 
     private void handleReloadConfig(byte[] payload) {
         ReloadConfigRequest request = MessageCodec.decodeReloadConfig(payload);
+        plugin.debug("Handling RELOAD_CONFIG player=%s requestId=%s",
+                request.playerUuid(),
+                request.requestId());
         try {
             plugin.reloadPluginState();
             proxyServer.getPlayer(request.playerUuid()).ifPresent(player -> plugin.sendToPaper(player,

@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 import me.mcgg.azreyzaako.mcggrtp.common.CommandAck;
 import me.mcgg.azreyzaako.mcggrtp.common.CooldownCheck;
@@ -29,24 +30,43 @@ public final class PaperMessageBridge implements PluginMessageListener {
     private final Map<String, Consumer<CommandAck>> commandCallbacks = new ConcurrentHashMap<>();
     private final Map<String, Consumer<ServerStatusResponse>> serverStatusCallbacks = new ConcurrentHashMap<>();
     private final Map<String, ServerStatusEntry> statusCache = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Boolean> handledPendingRequests = new ConcurrentHashMap<>();
 
     public PaperMessageBridge(McggRTPPaper plugin) {
         this.plugin = plugin;
     }
 
     public void sendCreatePending(Player player, RtpRequest request) {
+        plugin.debug("Sending CREATE_PENDING_RTP player=%s requestId=%s targetServer=%s targetWorld=%s dimension=%s",
+                player.getUniqueId(),
+                request.requestId(),
+                request.targetServer(),
+                request.targetWorld(),
+                request.dimension());
         send(player, MessageCodec.encodeCreatePendingRtp(request));
     }
 
     public void sendCheckPending(Player player) {
-        send(player, MessageCodec.encodeCheckPendingRtp(player.getUniqueId(), resolveCurrentServer(player)));
+        String currentServer = resolveCurrentServer(player);
+        plugin.debug("Sending CHECK_PENDING_RTP player=%s currentServer=%s",
+                player.getUniqueId(),
+                currentServer);
+        send(player, MessageCodec.encodeCheckPendingRtp(player.getUniqueId(), currentServer));
     }
 
     public void sendClearPending(Player player, String requestId) {
+        plugin.debug("Sending CLEAR_PENDING_RTP player=%s requestId=%s",
+                player.getUniqueId(),
+                requestId);
         send(player, MessageCodec.encodeClearPendingRtp(requestId, player.getUniqueId()));
     }
 
     public void sendResult(Player player, RtpResult result) {
+        plugin.debug("Sending RTP_RESULT player=%s requestId=%s success=%s reason=%s",
+                player.getUniqueId(),
+                result.requestId(),
+                result.success(),
+                result.reason());
         send(player, MessageCodec.encodeRtpResult(result));
     }
 
@@ -62,8 +82,17 @@ public final class PaperMessageBridge implements PluginMessageListener {
 
     public void requestServerMenu(Player player, String dimension) {
         String requestId = nextRequestId();
+        plugin.debug("Requesting server status player=%s dimension=%s requestId=%s",
+                player.getUniqueId(),
+                dimension,
+                requestId);
         serverStatusCallbacks.put(requestId, response -> {
             cacheStatuses(response.dimension(), response.entries());
+            plugin.debug("Received server status player=%s dimension=%s entries=%d requestId=%s",
+                    player.getUniqueId(),
+                    response.dimension(),
+                    response.entries().size(),
+                    response.requestId());
             RtpMenus.openServerMenu(player, plugin.configModel(), plugin.messages(), response.dimension(), response.entries());
         });
         send(player, MessageCodec.encodeServerStatusRequest(
@@ -74,6 +103,11 @@ public final class PaperMessageBridge implements PluginMessageListener {
     public void checkCooldownThenLocalTeleport(Player player, String worldName, String dimension) {
         String requestId = nextRequestId();
         pendingTeleports.put(requestId, new PendingLocalTeleport(player.getUniqueId(), worldName, dimension));
+        plugin.debug("Sending CHECK_COOLDOWN player=%s requestId=%s world=%s dimension=%s",
+                player.getUniqueId(),
+                requestId,
+                worldName,
+                dimension);
         send(player, MessageCodec.encodeCheckCooldown(
                 new CooldownCheck(requestId, player.getUniqueId())
         ));
@@ -96,6 +130,9 @@ public final class PaperMessageBridge implements PluginMessageListener {
         }
 
         MessageType type = MessageCodec.peekType(message);
+        plugin.debug("Received plugin message player=%s type=%s",
+                player.getUniqueId(),
+                type);
         switch (type) {
             case PENDING_RTP_RESPONSE -> handlePendingResponse(player, message);
             case COOLDOWN_RESPONSE -> handleCooldownResponse(player, message);
@@ -109,17 +146,38 @@ public final class PaperMessageBridge implements PluginMessageListener {
 
     private void handlePendingResponse(Player player, byte[] message) {
         PendingRtpResponse response = MessageCodec.decodePendingRtpResponse(message);
-        if (response.hasPending()) {
+        boolean hasPending = response.hasPending();
+        boolean firstSeen = hasPending && handledPendingRequests.putIfAbsent(response.requestId(), Boolean.TRUE) == null;
+        if (firstSeen) {
+            plugin.debug("Starting pending RTP player=%s requestId=%s world=%s dimension=%s",
+                    player.getUniqueId(),
+                    response.requestId(),
+                    response.targetWorld(),
+                    response.dimension());
             plugin.teleportService().beginPendingTeleport(player, response.requestId(), response.targetWorld(), response.dimension());
+            return;
         }
+        plugin.debug("Ignoring pending RTP response player=%s requestId=%s hasPending=%s duplicate=%s",
+                player.getUniqueId(),
+                response.requestId(),
+                hasPending,
+                hasPending && !firstSeen);
     }
 
     private void handleCooldownResponse(Player player, byte[] message) {
         CooldownResponse response = MessageCodec.decodeCooldownResponse(message);
         PendingLocalTeleport pending = pendingTeleports.remove(response.requestId());
         if (pending == null || !pending.playerUuid().equals(player.getUniqueId())) {
+            plugin.debug("Ignoring cooldown response player=%s requestId=%s matchedPending=false",
+                    player.getUniqueId(),
+                    response.requestId());
             return;
         }
+        plugin.debug("Handling cooldown response player=%s requestId=%s active=%s remaining=%d",
+                player.getUniqueId(),
+                response.requestId(),
+                response.active(),
+                response.remainingSeconds());
         if (response.active()) {
             player.playSound(player.getLocation(), plugin.configModel().sounds().denied(), 1.0F, 1.0F);
             player.sendMessage(plugin.messages().text("cooldown", "{time}", String.valueOf(response.remainingSeconds())));
@@ -133,7 +191,11 @@ public final class PaperMessageBridge implements PluginMessageListener {
         Consumer<ServerStatusResponse> callback = serverStatusCallbacks.remove(response.requestId());
         if (callback != null) {
             callback.accept(response);
+            return;
         }
+        plugin.debug("Ignoring server status response requestId=%s dimension=%s callbackFound=false",
+                response.requestId(),
+                response.dimension());
     }
 
     private void handleCommandAck(byte[] message) {
@@ -141,7 +203,11 @@ public final class PaperMessageBridge implements PluginMessageListener {
         Consumer<CommandAck> callback = commandCallbacks.remove(ack.requestId());
         if (callback != null) {
             callback.accept(ack);
+            return;
         }
+        plugin.debug("Ignoring command ack requestId=%s success=%s callbackFound=false",
+                ack.requestId(),
+                ack.success());
     }
 
     private void cacheStatuses(String dimension, List<ServerStatusEntry> entries) {

@@ -23,6 +23,9 @@ public final class VelocityConfigLoader {
             #   1. the names used in Velocity's `[servers]` block
             #   2. `network.current-server` on each Paper backend
             #
+            debug:
+              enabled: false
+
             settings:
               plugin-message-channel: "mcggrtp:main"
               pending-expire-seconds: 30
@@ -88,6 +91,7 @@ public final class VelocityConfigLoader {
 
     @SuppressWarnings("unchecked")
     private VelocityConfig parse(Map<String, Object> root) {
+        Map<String, Object> debug = map(root, "debug");
         Map<String, Object> settings = map(root, "settings");
         Map<String, Object> cooldowns = map(root, "cooldowns");
         String serverPermissionPrefix = string(cooldowns, "server-permission-prefix", "mcggrtp.server.");
@@ -116,6 +120,7 @@ public final class VelocityConfigLoader {
         }
 
         VelocityConfig config = new VelocityConfig(
+                bool(debug, "enabled", false),
                 string(settings, "plugin-message-channel"),
                 integer(settings, "pending-expire-seconds", 30),
                 bool(cooldowns, "enabled", true),
