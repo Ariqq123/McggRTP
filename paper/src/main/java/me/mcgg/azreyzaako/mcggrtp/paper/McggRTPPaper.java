@@ -11,6 +11,7 @@ import me.mcgg.azreyzaako.mcggrtp.paper.listener.RtpWarmupListener;
 import me.mcgg.azreyzaako.mcggrtp.paper.messaging.PaperMessageBridge;
 import me.mcgg.azreyzaako.mcggrtp.paper.rtp.RtpTeleportService;
 import me.mcgg.azreyzaako.mcggrtp.paper.rtp.RtpWarmupService;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -116,11 +117,12 @@ public class McggRTPPaper extends JavaPlugin {
 
     private void registerRtpCommand(RtpCommand command) {
         try {
-            // Paper plugins use runtime command registration instead of YAML lookup.
-            JavaPlugin.class.getMethod("registerCommand", String.class, String.class, io.papermc.paper.command.brigadier.BasicCommand.class)
-                    .invoke(this, "rtp", "Open the McggRTP menu.", command);
+            // Paper 1.21+ plugins register commands through the lifecycle command registrar.
+            getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event ->
+                    event.registrar().register("rtp", "Open the McggRTP menu.", command)
+            );
             return;
-        } catch (ReflectiveOperationException ignored) {
+        } catch (Throwable ignored) {
             // MockBukkit still exposes the classic Bukkit command path used by the tests.
         }
 

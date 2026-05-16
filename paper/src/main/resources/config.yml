@@ -87,6 +87,9 @@ network:
 
 rtp:
   cooldown-seconds: 300
+  # Limits how many RTP searches/chunk loads can run at the same time on this
+  # backend. Extra RTP requests wait in a small in-memory queue.
+  max-concurrent-searches: 8
   worlds:
     world:
       enabled: true

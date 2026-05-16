@@ -215,6 +215,7 @@ class RtpGuiListenerTest {
                         )
                 ),
                 300,
+                8,
                 Map.of("world", new PaperConfig.WorldRtpSettings(true, 0, 0, 0, 0, 1, false, Set.of(Biome.PLAINS), Set.of()))
         );
     }
@@ -233,6 +234,7 @@ class RtpGuiListenerTest {
                         config().network().servers()
                 ),
                 config().cooldownSeconds(),
+                config().maxConcurrentSearches(),
                 config().worlds()
         );
     }

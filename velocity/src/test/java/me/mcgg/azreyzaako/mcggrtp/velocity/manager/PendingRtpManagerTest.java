@@ -49,6 +49,19 @@ class PendingRtpManagerTest {
         assertFalse(manager.findFor(pending.playerUuid(), "survival-2").isPresent());
     }
 
+    @Test
+    void expiredLookupRemovesTrackedPendingEntryWithoutFullScan() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-05-16T00:00:00Z"));
+        PendingRtpManager manager = new PendingRtpManager(clock, 5);
+        PendingRtp pending = new PendingRtp("req-1", UUID.randomUUID(), "survival-2", "world", "overworld", clock.millis());
+        manager.put(pending);
+
+        clock.advanceSeconds(6);
+
+        assertFalse(manager.findFor(pending.playerUuid(), "survival-2").isPresent());
+        assertEquals(0, manager.trackedCount());
+    }
+
     private static final class MutableClock extends Clock {
         private Instant instant;
 

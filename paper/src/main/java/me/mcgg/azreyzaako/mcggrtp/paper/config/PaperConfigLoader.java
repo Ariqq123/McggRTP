@@ -143,6 +143,7 @@ public final class PaperConfigLoader {
                         Map.copyOf(networkServers)
                 ),
                 rtp == null ? 300 : rtp.getInt("cooldown-seconds", 300),
+                rtp == null ? 8 : Math.max(1, rtp.getInt("max-concurrent-searches", 8)),
                 Map.copyOf(worlds)
         );
     }

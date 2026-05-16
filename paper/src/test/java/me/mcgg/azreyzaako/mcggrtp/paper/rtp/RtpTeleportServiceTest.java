@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -32,6 +33,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitScheduler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 
 class RtpTeleportServiceTest {
     private McggRTPPaper plugin;
@@ -143,6 +145,48 @@ class RtpTeleportServiceTest {
         verify(bridge).sendClearPending(player, "req-1");
     }
 
+    @Test
+    void secondTeleportQueuesUntilFirstFinishesWhenSearchLimitIsReached() {
+        Player secondPlayer = mock(Player.class);
+        when(secondPlayer.getUniqueId()).thenReturn(UUID.randomUUID());
+        when(secondPlayer.getLocation()).thenReturn(mock(Location.class));
+        when(secondPlayer.isOnline()).thenReturn(true);
+        when(secondPlayer.isValid()).thenReturn(true);
+        when(secondPlayer.teleportAsync(any(Location.class))).thenReturn(CompletableFuture.completedFuture(true));
+
+        SafeLocationFinder finder = mock(SafeLocationFinder.class);
+        SafeLocationFinder.Candidate firstCandidate = new SafeLocationFinder.Candidate(0, 0, 0, 0);
+        SafeLocationFinder.Candidate secondCandidate = new SafeLocationFinder.Candidate(16, 16, 1, 1);
+        SafeLocationFinder.SearchPlan firstPlan = plan(List.of(firstCandidate), List.of(), 1);
+        SafeLocationFinder.SearchPlan secondPlan = plan(List.of(secondCandidate), List.of(), 1);
+        when(finder.createPlan(world, limitedConfig().worlds().get("world"))).thenReturn(firstPlan, secondPlan);
+        when(finder.validate(world, limitedConfig().worlds().get("world"), firstPlan, firstCandidate))
+                .thenReturn(Optional.of(new Location(world, 0.5D, 65.0D, 0.5D)));
+        when(finder.validate(world, limitedConfig().worlds().get("world"), secondPlan, secondCandidate))
+                .thenReturn(Optional.of(new Location(world, 16.5D, 65.0D, 16.5D)));
+
+        CompletableFuture<Chunk> firstChunk = new CompletableFuture<>();
+        CompletableFuture<Chunk> secondChunk = new CompletableFuture<>();
+        when(world.getChunkAtAsync(0, 0, false)).thenReturn(firstChunk);
+        when(world.getChunkAtAsync(1, 1, false)).thenReturn(secondChunk);
+        when(messages.text("search-queued", "{position}", "1")).thenReturn(Component.text("queued"));
+
+        RtpTeleportService service = new RtpTeleportService(plugin, limitedConfig(), messages, bridge, finder);
+        service.beginLocalTeleport(player, "world", "overworld");
+        service.beginLocalTeleport(secondPlayer, "world", "overworld");
+
+        verify(secondPlayer).sendMessage(Component.text("queued"));
+        verify(world, never()).getChunkAtAsync(1, 1, false);
+
+        firstChunk.complete(chunk);
+        verify(world).getChunkAtAsync(1, 1, false);
+        secondChunk.complete(chunk);
+
+        InOrder order = inOrder(player, secondPlayer);
+        order.verify(player).teleportAsync(any(Location.class));
+        order.verify(secondPlayer).teleportAsync(any(Location.class));
+    }
+
     private SafeLocationFinder.SearchPlan plan(List<SafeLocationFinder.Candidate> primary,
                                                List<SafeLocationFinder.Candidate> fallback,
                                                int maxAttempts) {
@@ -171,7 +215,22 @@ class RtpTeleportServiceTest {
                 Map.of(),
                 new PaperConfig.NetworkSettings("survival-1", "mcggrtp.server.", Map.of(), Map.of()),
                 300,
+                8,
                 Map.of("world", new PaperConfig.WorldRtpSettings(true, 0, 0, 0, 0, 2, false, Set.of(), Set.of(org.bukkit.Material.LAVA)))
+        );
+    }
+
+    private PaperConfig limitedConfig() {
+        return new PaperConfig(
+                config().debug(),
+                config().gui(),
+                config().serverMenu(),
+                config().sounds(),
+                config().dimensions(),
+                config().network(),
+                config().cooldownSeconds(),
+                1,
+                config().worlds()
         );
     }
 }

@@ -2,6 +2,7 @@ package me.mcgg.azreyzaako.mcggrtp.velocity.manager;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -33,6 +34,19 @@ class CooldownManagerTest {
         clock.advanceSeconds(11);
 
         assertFalse(manager.getState(playerId).active());
+    }
+
+    @Test
+    void expiredCooldownLookupRemovesTrackedEntry() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-05-16T00:00:00Z"));
+        CooldownManager manager = new CooldownManager(clock, true, 10);
+        UUID playerId = UUID.randomUUID();
+        manager.markUsed(playerId);
+
+        clock.advanceSeconds(11);
+
+        assertFalse(manager.getState(playerId).active());
+        assertEquals(0, manager.trackedCount());
     }
 
     private static final class MutableClock extends Clock {

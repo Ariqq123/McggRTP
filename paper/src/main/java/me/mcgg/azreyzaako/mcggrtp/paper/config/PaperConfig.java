@@ -15,6 +15,7 @@ public record PaperConfig(
         Map<String, DimensionOption> dimensions,
         NetworkSettings network,
         int cooldownSeconds,
+        int maxConcurrentSearches,
         Map<String, WorldRtpSettings> worlds
 ) {
     public record DebugSettings(boolean enabled) {
