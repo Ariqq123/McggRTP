@@ -20,6 +20,12 @@ tasks.jar {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
+tasks.processResources {
+    filesMatching("velocity-plugin.json") {
+        expand("version" to project.version)
+    }
+}
+
 tasks.shadowJar {
     archiveFileName.set("McggRTP-velocity.jar")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE

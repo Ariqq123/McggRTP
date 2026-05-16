@@ -25,7 +25,7 @@ import org.slf4j.Logger;
 @Plugin(
         id = "mcggrtp",
         name = "McggRTP-Velocity",
-        version = "1.0.0",
+        version = "1.0.1",
         authors = {"azreyzaako"}
 )
 public final class McggRTPVelocity {

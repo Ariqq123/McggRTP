@@ -1,7 +1,7 @@
 {
   "id": "mcggrtp",
   "name": "McggRTP-Velocity",
-  "version": "1.0.0",
+  "version": "${version}",
   "description": "Network random teleport system for Velocity and Paper.",
   "authors": ["azreyzaako"],
   "main": "me.mcgg.azreyzaako.mcggrtp.velocity.McggRTPVelocity"
