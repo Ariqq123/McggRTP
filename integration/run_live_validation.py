@@ -30,6 +30,8 @@ PAPER_MESSAGE_TEMPLATE = {
     "prefix": "&8[&aMcggRTP&8] ",
     "no-permission": "&cYou do not have permission.",
     "cooldown": "&cYou must wait &e{time}&c before using RTP again.",
+    "warmup-started": "&7Teleporting in &e{time}&7 seconds. Do not move.",
+    "warmup-cancelled": "&cWarmup cancelled because you moved.",
     "teleport-failed": "&cCould not find a safe location. Try again later.",
     "sending-server": "&7Sending you to &e{server}&7...",
     "server-offline": "&cThat server is offline.",
@@ -212,7 +214,8 @@ def velocity_plugin_config() -> dict:
         "cooldowns": {
             "enabled": True,
             "default-seconds": 3,
-            "bypass-permission": "rtp.bypass.cooldown",
+            "bypass-permission": "mcggrtp.bypass.cooldown",
+            "server-permission-prefix": "mcggrtp.server.",
         },
         "servers": network_servers(),
         "dimensions": network_dimensions(["survival-1"], ["survival-1", "survival-2", "survival-3"]),
@@ -231,9 +234,9 @@ def paper_plugin_config(server_id: str) -> dict:
             },
         },
         "main-menu": {
-            "overworld": dimension_option(11, "&aOverworld", "GRASS_BLOCK", "world", "rtp.dimension.overworld", "&7Click to choose an overworld server."),
-            "nether": dimension_option(13, "&cNether", "NETHERRACK", "world_nether", "rtp.dimension.nether", "&7Click to choose a nether server."),
-            "end": dimension_option(15, "&dThe End", "END_STONE", "world_the_end", "rtp.dimension.end", "&7Click to choose an end server."),
+            "overworld": dimension_option(11, "&aOverworld", "GRASS_BLOCK", "world", "mcggrtp.dimension.overworld", "&7Click to choose an overworld server."),
+            "nether": dimension_option(13, "&cNether", "NETHERRACK", "world_nether", "mcggrtp.dimension.nether", "&7Click to choose a nether server."),
+            "end": dimension_option(15, "&dThe End", "END_STONE", "world_the_end", "mcggrtp.dimension.end", "&7Click to choose an end server."),
         },
         "server-menu": {
             "title": "&8Choose Server: {dimension}",
@@ -249,12 +252,10 @@ def paper_plugin_config(server_id: str) -> dict:
         },
         "network": {
             "current-server": server_id,
+            "server-permission-prefix": "mcggrtp.server.",
             "dimensions": network_dimensions(["survival-1"], ["survival-1", "survival-2", "survival-3"]),
             "servers": {
-                server_key: {
-                    "display-name": server_value["display-name"],
-                    "permission": server_value["permission"],
-                }
+                server_key: {"display-name": server_value["display-name"]}
                 for server_key, server_value in network_servers().items()
             },
         },
@@ -279,9 +280,9 @@ def paper_messages(server_tag: str) -> dict:
 
 def network_servers() -> dict:
     return {
-        "survival-1": {"display-name": "&aSurvival 1", "enabled": True, "permission": "rtp.server.survival1"},
-        "survival-2": {"display-name": "&aSurvival 2", "enabled": True, "permission": "rtp.server.survival2"},
-        "survival-3": {"display-name": "&aSurvival 3", "enabled": True, "permission": "rtp.server.survival3"},
+        "survival-1": {"display-name": "&aSurvival 1", "enabled": True},
+        "survival-2": {"display-name": "&aSurvival 2", "enabled": True},
+        "survival-3": {"display-name": "&aSurvival 3", "enabled": True},
     }
 
 
@@ -300,6 +301,7 @@ def dimension_option(slot: int, display_name: str, material: str, world_name: st
         "material": material,
         "world-name": world_name,
         "permission": permission,
+        "warmup-seconds": 1,
         "lore": [lore_line],
     }
 

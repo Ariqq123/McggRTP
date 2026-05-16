@@ -91,7 +91,7 @@ class RtpTeleportServiceTest {
                         Sound.ENTITY_ENDERMAN_TELEPORT
                 ),
                 Map.of(),
-                new PaperConfig.NetworkSettings("survival-1", Map.of(), Map.of()),
+                new PaperConfig.NetworkSettings("survival-1", "mcggrtp.server.", Map.of(), Map.of()),
                 300,
                 Map.of("world", new PaperConfig.WorldRtpSettings(true, 0, 0, 0, 0, 1, false, Set.of(), Set.of(Material.LAVA)))
         );

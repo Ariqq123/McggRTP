@@ -20,7 +20,8 @@ main-menu:
     display-name: "&aOverworld"
     material: GRASS_BLOCK
     world-name: world
-    permission: "rtp.dimension.overworld"
+    permission: "mcggrtp.dimension.overworld"
+    warmup-seconds: 5
     lore:
       - "&7Click to choose an overworld server."
   nether:
@@ -28,7 +29,8 @@ main-menu:
     display-name: "&cNether"
     material: NETHERRACK
     world-name: world_nether
-    permission: "rtp.dimension.nether"
+    permission: "mcggrtp.dimension.nether"
+    warmup-seconds: 5
     lore:
       - "&7Click to choose a nether server."
       - "&cDangerous dimension."
@@ -37,7 +39,8 @@ main-menu:
     display-name: "&dThe End"
     material: END_STONE
     world-name: world_the_end
-    permission: "rtp.dimension.end"
+    permission: "mcggrtp.dimension.end"
+    warmup-seconds: 5
     lore:
       - "&7Click to choose an end server."
 
@@ -56,6 +59,7 @@ sounds:
 network:
   # Must match the server name configured on Velocity for this backend.
   current-server: "survival-1"
+  server-permission-prefix: "mcggrtp.server."
   dimensions:
     overworld:
       servers: [ "survival-1", "survival-2", "survival-3" ]
@@ -66,13 +70,14 @@ network:
   servers:
     survival-1:
       display-name: "&aSurvival 1"
-      permission: "rtp.server.survival1"
     survival-2:
       display-name: "&aSurvival 2"
-      permission: "rtp.server.survival2"
     survival-3:
       display-name: "&aSurvival 3"
-      permission: "rtp.server.survival3"
+  # If a server entry omits `permission`, McggRTP derives it as:
+  # `<server-permission-prefix><server-id>`
+  # Example: with `server-permission-prefix: "mcgg.server."`,
+  # `skyblock321` becomes `mcgg.server.skyblock321`
 
 rtp:
   cooldown-seconds: 300

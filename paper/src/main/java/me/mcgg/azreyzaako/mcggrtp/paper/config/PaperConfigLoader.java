@@ -64,12 +64,16 @@ public final class PaperConfigLoader {
                         Material.matchMaterial(section.getString("material", "STONE")),
                         section.getString("world-name", "world"),
                         section.getString("permission", ""),
+                        section.getInt("warmup-seconds", 0),
                         section.getStringList("lore")
                 ));
             }
         }
 
         ConfigurationSection network = root.getConfigurationSection("network");
+        String serverPermissionPrefix = network == null
+                ? "mcggrtp.server."
+                : network.getString("server-permission-prefix", "mcggrtp.server.");
         Map<String, List<String>> networkDimensions = new LinkedHashMap<>();
         ConfigurationSection networkDimensionSection = network == null ? null : network.getConfigurationSection("dimensions");
         if (networkDimensionSection != null) {
@@ -90,7 +94,7 @@ public final class PaperConfigLoader {
                     networkServers.put(key, new PaperConfig.NetworkServer(
                             key,
                             section.getString("display-name", key),
-                            section.getString("permission", "")
+                            serverPermission(serverPermissionPrefix, key, section.getString("permission", ""))
                     ));
                 }
             }
@@ -132,6 +136,7 @@ public final class PaperConfigLoader {
                 Map.copyOf(dimensions),
                 new PaperConfig.NetworkSettings(
                         network == null ? "survival-1" : network.getString("current-server", "survival-1"),
+                        serverPermissionPrefix,
                         Map.copyOf(networkDimensions),
                         Map.copyOf(networkServers)
                 ),
@@ -189,5 +194,17 @@ public final class PaperConfigLoader {
         } catch (ReflectiveOperationException ignored) {
             return null;
         }
+    }
+
+    private String serverPermission(String prefix, String serverId, String configuredPermission) {
+        if (configuredPermission != null && !configuredPermission.isBlank()) {
+            return configuredPermission;
+        }
+        return prefix + normalizePermissionKey(serverId);
+    }
+
+    private String normalizePermissionKey(String value) {
+        String normalized = value.toLowerCase().replaceAll("[^a-z0-9._-]", "-");
+        return normalized.isBlank() ? "unknown" : normalized;
     }
 }

@@ -27,7 +27,7 @@ public final class RtpCommand implements CommandExecutor, BasicCommand {
 
     @Override
     public String permission() {
-        return "rtp.use";
+        return "mcggrtp.use";
     }
 
     private boolean handle(CommandSender sender, String[] args) {
@@ -36,7 +36,7 @@ public final class RtpCommand implements CommandExecutor, BasicCommand {
                 sender.sendMessage("Only players can use this command.");
                 return true;
             }
-            if (!player.hasPermission("rtp.admin.reload")) {
+            if (!player.hasPermission("mcggrtp.admin.reload")) {
                 player.sendMessage(plugin.messages().text("no-permission"));
                 return true;
             }
@@ -52,7 +52,7 @@ public final class RtpCommand implements CommandExecutor, BasicCommand {
             sender.sendMessage("Only players can use this command.");
             return true;
         }
-        if (!player.hasPermission("rtp.use")) {
+        if (!player.hasPermission("mcggrtp.use")) {
             player.sendMessage(plugin.messages().text("no-permission"));
             return true;
         }

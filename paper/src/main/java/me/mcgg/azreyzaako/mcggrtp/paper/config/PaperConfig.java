@@ -37,12 +37,14 @@ public record PaperConfig(
             Material material,
             String worldName,
             String permission,
+            int warmupSeconds,
             List<String> lore
     ) {
     }
 
     public record NetworkSettings(
             String currentServer,
+            String serverPermissionPrefix,
             Map<String, List<String>> dimensions,
             Map<String, NetworkServer> servers
     ) {

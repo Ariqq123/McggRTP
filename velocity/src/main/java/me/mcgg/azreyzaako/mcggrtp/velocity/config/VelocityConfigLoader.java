@@ -30,21 +30,21 @@ public final class VelocityConfigLoader {
             cooldowns:
               enabled: true
               default-seconds: 300
-              bypass-permission: "rtp.bypass.cooldown"
+              bypass-permission: "mcggrtp.bypass.cooldown"
+              server-permission-prefix: "mcggrtp.server."
 
             servers:
+              # If a server entry omits `permission`, McggRTP derives it as
+              # `mcggrtp.server.<server-id>`.
               survival-1:
                 display-name: "&aSurvival 1"
                 enabled: true
-                permission: "rtp.server.survival1"
               survival-2:
                 display-name: "&aSurvival 2"
                 enabled: true
-                permission: "rtp.server.survival2"
               survival-3:
                 display-name: "&aSurvival 3"
                 enabled: true
-                permission: "rtp.server.survival3"
 
             dimensions:
               overworld:
@@ -90,6 +90,7 @@ public final class VelocityConfigLoader {
     private VelocityConfig parse(Map<String, Object> root) {
         Map<String, Object> settings = map(root, "settings");
         Map<String, Object> cooldowns = map(root, "cooldowns");
+        String serverPermissionPrefix = string(cooldowns, "server-permission-prefix", "mcggrtp.server.");
         Map<String, Object> rawServers = map(root, "servers");
         Map<String, Object> rawDimensions = map(root, "dimensions");
 
@@ -100,7 +101,7 @@ public final class VelocityConfigLoader {
                     entry.getKey(),
                     string(section, "display-name"),
                     bool(section, "enabled", true),
-                    string(section, "permission")
+                    serverPermission(serverPermissionPrefix, entry.getKey(), string(section, "permission"))
             ));
         }
 
@@ -120,6 +121,7 @@ public final class VelocityConfigLoader {
                 bool(cooldowns, "enabled", true),
                 integer(cooldowns, "default-seconds", 300),
                 string(cooldowns, "bypass-permission"),
+                serverPermissionPrefix,
                 Map.copyOf(servers),
                 Map.copyOf(dimensions)
         );
@@ -137,7 +139,11 @@ public final class VelocityConfigLoader {
     }
 
     private String string(Map<String, Object> section, String key) {
-        Object value = section.getOrDefault(key, "");
+        return string(section, key, "");
+    }
+
+    private String string(Map<String, Object> section, String key, String fallback) {
+        Object value = section.getOrDefault(key, fallback);
         return String.valueOf(value);
     }
 
@@ -149,5 +155,17 @@ public final class VelocityConfigLoader {
     private int integer(Map<String, Object> section, String key, int fallback) {
         Object value = section.get(key);
         return value instanceof Number number ? number.intValue() : fallback;
+    }
+
+    private String serverPermission(String prefix, String serverId, String configuredPermission) {
+        if (configuredPermission != null && !configuredPermission.isBlank()) {
+            return configuredPermission;
+        }
+        return prefix + normalizePermissionKey(serverId);
+    }
+
+    private String normalizePermissionKey(String value) {
+        String normalized = value.toLowerCase().replaceAll("[^a-z0-9._-]", "-");
+        return normalized.isBlank() ? "unknown" : normalized;
     }
 }

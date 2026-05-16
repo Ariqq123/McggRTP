@@ -6,8 +6,10 @@ import me.mcgg.azreyzaako.mcggrtp.paper.config.PaperConfig;
 import me.mcgg.azreyzaako.mcggrtp.paper.config.PaperConfigLoader;
 import me.mcgg.azreyzaako.mcggrtp.paper.gui.RtpGuiListener;
 import me.mcgg.azreyzaako.mcggrtp.paper.listener.PendingRtpJoinListener;
+import me.mcgg.azreyzaako.mcggrtp.paper.listener.RtpWarmupListener;
 import me.mcgg.azreyzaako.mcggrtp.paper.messaging.PaperMessageBridge;
 import me.mcgg.azreyzaako.mcggrtp.paper.rtp.RtpTeleportService;
+import me.mcgg.azreyzaako.mcggrtp.paper.rtp.RtpWarmupService;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -16,6 +18,7 @@ public class McggRTPPaper extends JavaPlugin {
     private MessageBundle messages;
     private PaperMessageBridge messageBridge;
     private RtpTeleportService teleportService;
+    private RtpWarmupService warmupService;
 
     @Override
     public void onEnable() {
@@ -25,6 +28,7 @@ public class McggRTPPaper extends JavaPlugin {
         this.messages = new MessageBundle(this);
         this.messageBridge = new PaperMessageBridge(this);
         this.teleportService = new RtpTeleportService(this, configModel, messages, messageBridge);
+        this.warmupService = new RtpWarmupService(this);
 
         getServer().getMessenger().registerOutgoingPluginChannel(this, McggRTPChannels.MAIN);
         getServer().getMessenger().registerIncomingPluginChannel(this, McggRTPChannels.MAIN, messageBridge);
@@ -33,11 +37,15 @@ public class McggRTPPaper extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(new RtpGuiListener(this), this);
         getServer().getPluginManager().registerEvents(new PendingRtpJoinListener(this, messageBridge), this);
+        getServer().getPluginManager().registerEvents(new RtpWarmupListener(warmupService), this);
         getLogger().info("McggRTP Paper enabled");
     }
 
     @Override
     public void onDisable() {
+        if (warmupService != null) {
+            warmupService.clearAll();
+        }
         getServer().getMessenger().unregisterIncomingPluginChannel(this);
         getServer().getMessenger().unregisterOutgoingPluginChannel(this);
     }
@@ -56,6 +64,10 @@ public class McggRTPPaper extends JavaPlugin {
 
     public RtpTeleportService teleportService() {
         return teleportService;
+    }
+
+    public RtpWarmupService warmupService() {
+        return warmupService;
     }
 
     public void reloadPluginState() {

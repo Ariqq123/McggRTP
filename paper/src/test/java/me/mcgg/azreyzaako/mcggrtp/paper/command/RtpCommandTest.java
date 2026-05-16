@@ -42,7 +42,7 @@ class RtpCommandTest {
     @Test
     void reloadRequiresAdminPermission() {
         PlayerMock player = server.addPlayer("runner");
-        player.addAttachment(plugin, "rtp.admin.reload", false);
+        player.addAttachment(plugin, "mcggrtp.admin.reload", false);
         RtpCommand command = new RtpCommand(plugin);
 
         boolean handled = command.onCommand(player, mock(Command.class), "rtp", new String[] {"reload"});

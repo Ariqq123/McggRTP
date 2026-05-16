@@ -61,17 +61,16 @@ settings:
 cooldowns:
   enabled: true
   default-seconds: 300
-  bypass-permission: "rtp.bypass.cooldown"
+  bypass-permission: "mcggrtp.bypass.cooldown"
+  server-permission-prefix: "mcggrtp.server."
 
 servers:
   survival-1:
     display-name: "&aSurvival 1"
     enabled: true
-    permission: "rtp.server.survival1"
   survival-2:
     display-name: "&aSurvival 2"
     enabled: true
-    permission: "rtp.server.survival2"
 
 dimensions:
   overworld:
@@ -122,6 +121,7 @@ In each backend `plugins/McggRTP-Paper/config.yml`, set:
 - `network.current-server`
 - dimension world names
 - GUI/server mappings
+- per-dimension `warmup-seconds`
 - RTP settings per world
 
 Example for `survival-1`:
@@ -129,6 +129,7 @@ Example for `survival-1`:
 ```yml
 network:
   current-server: "survival-1"
+  server-permission-prefix: "mcggrtp.server."
   dimensions:
     overworld:
       servers: ["survival-1", "survival-2"]
@@ -139,10 +140,8 @@ network:
   servers:
     survival-1:
       display-name: "&aSurvival 1"
-      permission: "rtp.server.survival1"
     survival-2:
       display-name: "&aSurvival 2"
-      permission: "rtp.server.survival2"
 ```
 
 On `survival-2`, change only:
@@ -151,6 +150,16 @@ On `survival-2`, change only:
 network:
   current-server: "survival-2"
 ```
+
+Warmup is enforced on the Paper backend before either:
+- a same-server RTP cooldown check and local teleport
+- a cross-server pending request to Velocity
+
+Server permissions are dynamic by default. If you omit `permission` for a server,
+McggRTP derives `<server-permission-prefix><server-id>`.
+Examples:
+- with `mcggrtp.server.`: `survival-2` -> `mcggrtp.server.survival-2`
+- with `mcgg.server.`: `skyblock321` -> `mcgg.server.skyblock321`
 
 World-name entries must match real Bukkit world names on that backend:
 
@@ -180,21 +189,19 @@ In backend `server.properties`:
 
 The plugin uses these permissions:
 
-- `rtp.use`
-- `rtp.dimension.overworld`
-- `rtp.dimension.nether`
-- `rtp.dimension.end`
-- `rtp.server.survival1`
-- `rtp.server.survival2`
-- `rtp.server.survival3`
-- `rtp.bypass.cooldown`
-- `rtp.admin.reload`
+- `mcggrtp.use`
+- `mcggrtp.dimension.overworld`
+- `mcggrtp.dimension.nether`
+- `mcggrtp.dimension.end`
+- `mcggrtp.server.<server-id>`
+- `mcggrtp.bypass.cooldown`
+- `mcggrtp.admin.reload`
 
 Defaults:
 
 - normal RTP permissions are enabled by default
-- `rtp.bypass.cooldown` is op-only
-- `rtp.admin.reload` is op-only
+- `mcggrtp.bypass.cooldown` is op-only
+- `mcggrtp.admin.reload` is op-only
 
 If you use LuckPerms, assign them there instead of relying on defaults.
 

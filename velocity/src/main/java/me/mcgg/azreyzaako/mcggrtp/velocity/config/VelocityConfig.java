@@ -9,6 +9,7 @@ public record VelocityConfig(
         boolean cooldownEnabled,
         int defaultCooldownSeconds,
         String bypassPermission,
+        String serverPermissionPrefix,
         Map<String, NetworkServer> servers,
         Map<String, List<String>> dimensions
 ) {

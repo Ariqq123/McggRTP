@@ -17,6 +17,7 @@ import me.mcgg.azreyzaako.mcggrtp.paper.McggRTPPaper;
 import me.mcgg.azreyzaako.mcggrtp.paper.MessageBundle;
 import me.mcgg.azreyzaako.mcggrtp.paper.config.PaperConfig;
 import me.mcgg.azreyzaako.mcggrtp.paper.messaging.PaperMessageBridge;
+import me.mcgg.azreyzaako.mcggrtp.paper.rtp.RtpWarmupService;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -33,6 +34,7 @@ class RtpGuiListenerTest {
     private McggRTPPaper plugin;
     private PaperMessageBridge bridge;
     private MessageBundle messages;
+    private RtpWarmupService warmupService;
     private Player player;
     private RtpGuiListener listener;
 
@@ -41,12 +43,14 @@ class RtpGuiListenerTest {
         plugin = mock(McggRTPPaper.class);
         bridge = mock(PaperMessageBridge.class);
         messages = mock(MessageBundle.class);
+        warmupService = mock(RtpWarmupService.class);
         player = mock(Player.class);
         listener = new RtpGuiListener(plugin);
 
         when(plugin.configModel()).thenReturn(config());
         when(plugin.messageBridge()).thenReturn(bridge);
         when(plugin.messages()).thenReturn(messages);
+        when(plugin.warmupService()).thenReturn(warmupService);
         when(player.getLocation()).thenReturn(mock(Location.class));
         when(messages.text("no-permission")).thenReturn(Component.text("no-permission"));
         when(messages.text("server-offline")).thenReturn(Component.text("server-offline"));
@@ -57,7 +61,7 @@ class RtpGuiListenerTest {
 
     @Test
     void mainMenuDeniedWithoutDimensionPermission() {
-        when(player.hasPermission("rtp.dimension.overworld")).thenReturn(false);
+        when(player.hasPermission("mcggrtp.dimension.overworld")).thenReturn(false);
 
         listener.onInventoryClick(event(mainInventory(), new ItemStack(Material.GRASS_BLOCK), 10));
 
@@ -67,7 +71,7 @@ class RtpGuiListenerTest {
 
     @Test
     void mainMenuRequestsServerMenuWhenAllowed() {
-        when(player.hasPermission("rtp.dimension.overworld")).thenReturn(true);
+        when(player.hasPermission("mcggrtp.dimension.overworld")).thenReturn(true);
 
         listener.onInventoryClick(event(mainInventory(), new ItemStack(Material.GRASS_BLOCK), 10));
 
@@ -75,11 +79,14 @@ class RtpGuiListenerTest {
     }
 
     @Test
-    void serverMenuStartsLocalTeleportOnCurrentServer() {
+    void serverMenuStartsLocalTeleportWarmupOnCurrentServer() {
         when(bridge.resolveCurrentServer(player)).thenReturn("survival-1");
 
         listener.onInventoryClick(event(serverInventory("overworld"), new ItemStack(Material.LIME_WOOL), 0));
 
+        var callback = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+        verify(warmupService).begin(eq(player), eq(5), callback.capture());
+        callback.getValue().run();
         verify(bridge).checkCooldownThenLocalTeleport(player, "world", "overworld");
         verify(bridge, never()).sendCreatePending(any(), any());
     }
@@ -87,10 +94,13 @@ class RtpGuiListenerTest {
     @Test
     void serverMenuCreatesPendingRequestForOtherServer() {
         when(bridge.resolveCurrentServer(player)).thenReturn("survival-1");
-        when(player.hasPermission("rtp.server.survival2")).thenReturn(true);
+        when(player.hasPermission("mcggrtp.server.survival-2")).thenReturn(true);
 
         listener.onInventoryClick(event(serverInventory("overworld"), new ItemStack(Material.LIME_WOOL), 1));
 
+        var callback = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+        verify(warmupService).begin(eq(player), eq(5), callback.capture());
+        callback.getValue().run();
         verify(bridge).sendCreatePending(eq(player), any(RtpRequest.class));
         verify(player).sendMessage(Component.text("sending-server"));
     }
@@ -108,7 +118,7 @@ class RtpGuiListenerTest {
 
     @Test
     void serverMenuDeniesWithoutServerPermission() {
-        when(player.hasPermission("rtp.server.survival2")).thenReturn(false);
+        when(player.hasPermission("mcggrtp.server.survival-2")).thenReturn(false);
 
         listener.onInventoryClick(event(serverInventory("overworld"), new ItemStack(Material.LIME_WOOL), 1));
 
@@ -155,16 +165,18 @@ class RtpGuiListenerTest {
                                 "&aOverworld",
                                 Material.GRASS_BLOCK,
                                 "world",
-                                "rtp.dimension.overworld",
+                                "mcggrtp.dimension.overworld",
+                                5,
                                 List.of("&7Teleport")
                         )
                 ),
                 new PaperConfig.NetworkSettings(
                         "survival-1",
+                        "mcggrtp.server.",
                         Map.of("overworld", List.of("survival-1", "survival-2")),
                         Map.of(
                                 "survival-1", new PaperConfig.NetworkServer("survival-1", "&aSurvival 1", ""),
-                                "survival-2", new PaperConfig.NetworkServer("survival-2", "&aSurvival 2", "rtp.server.survival2")
+                                "survival-2", new PaperConfig.NetworkServer("survival-2", "&aSurvival 2", "mcggrtp.server.survival-2")
                         )
                 ),
                 300,

@@ -36,7 +36,7 @@ class RtpMenusTest {
     @Test
     void mainMenuShowsBarrierForLockedDimension() {
         PlayerMock player = server.addPlayer("viewer");
-        player.addAttachment(plugin, "rtp.dimension.nether", false);
+        player.addAttachment(plugin, "mcggrtp.dimension.nether", false);
 
         RtpMenus.openMainMenu(player, plugin.configModel(), plugin.messages());
 
@@ -50,7 +50,8 @@ class RtpMenusTest {
     @Test
     void serverMenuShowsOnlineLockedAndOfflineStatesWithCounts() {
         PlayerMock player = server.addPlayer("viewer");
-        player.addAttachment(plugin, "rtp.server.survival2", false);
+        assertEquals("mcggrtp.server.survival-2", plugin.configModel().network().servers().get("survival-2").permission());
+        player.addAttachment(plugin, "mcggrtp.server.survival-2", false);
 
         RtpMenus.openServerMenu(
                 player,

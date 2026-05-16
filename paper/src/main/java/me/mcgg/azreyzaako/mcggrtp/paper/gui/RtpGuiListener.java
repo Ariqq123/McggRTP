@@ -82,10 +82,14 @@ public final class RtpGuiListener implements Listener {
         }
 
         player.closeInventory();
+        player.playSound(player.getLocation(), plugin.configModel().sounds().menuClick(), 1.0F, 1.0F);
+        plugin.warmupService().begin(player, dimensionOption.warmupSeconds(), () -> completeSelection(player, dimension, dimensionOption.worldName(), targetServer));
+    }
+
+    private void completeSelection(Player player, String dimension, String worldName, String targetServer) {
         String currentServer = plugin.messageBridge().resolveCurrentServer(player);
         if (targetServer.equalsIgnoreCase(currentServer)) {
-            player.playSound(player.getLocation(), plugin.configModel().sounds().menuClick(), 1.0F, 1.0F);
-            plugin.messageBridge().checkCooldownThenLocalTeleport(player, dimensionOption.worldName(), dimension);
+            plugin.messageBridge().checkCooldownThenLocalTeleport(player, worldName, dimension);
             return;
         }
 
@@ -94,10 +98,9 @@ public final class RtpGuiListener implements Listener {
                 requestId,
                 player.getUniqueId(),
                 targetServer,
-                dimensionOption.worldName(),
+                worldName,
                 dimension
         ));
-        player.playSound(player.getLocation(), plugin.configModel().sounds().menuClick(), 1.0F, 1.0F);
         player.sendMessage(plugin.messages().text("sending-server", "{server}", targetServer));
     }
 }

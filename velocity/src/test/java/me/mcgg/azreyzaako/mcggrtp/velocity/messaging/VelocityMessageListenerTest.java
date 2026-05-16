@@ -74,11 +74,12 @@ class VelocityMessageListenerTest {
                 30,
                 true,
                 300,
-                "rtp.bypass.cooldown",
+                "mcggrtp.bypass.cooldown",
+                "mcggrtp.server.",
                 java.util.Map.of(
-                        "survival-1", new VelocityConfig.NetworkServer("survival-1", "&aSurvival 1", true, "rtp.server.survival1"),
-                        "survival-2", new VelocityConfig.NetworkServer("survival-2", "&aSurvival 2", true, "rtp.server.survival2"),
-                        "survival-3", new VelocityConfig.NetworkServer("survival-3", "&aSurvival 3", false, "rtp.server.survival3")
+                        "survival-1", new VelocityConfig.NetworkServer("survival-1", "&aSurvival 1", true, "mcggrtp.server.survival-1"),
+                        "survival-2", new VelocityConfig.NetworkServer("survival-2", "&aSurvival 2", true, "mcggrtp.server.survival-2"),
+                        "survival-3", new VelocityConfig.NetworkServer("survival-3", "&aSurvival 3", false, "mcggrtp.server.survival-3")
                 ),
                 java.util.Map.of(
                         "overworld", List.of("survival-1", "survival-2", "survival-3"),
@@ -96,7 +97,7 @@ class VelocityMessageListenerTest {
         RtpRequest request = new RtpRequest("req-1", playerId, "survival-2", "world", "overworld");
         when(proxyServer.getPlayer(playerId)).thenReturn(Optional.of(player));
         when(player.getUniqueId()).thenReturn(playerId);
-        when(player.hasPermission("rtp.bypass.cooldown")).thenReturn(false);
+        when(player.hasPermission("mcggrtp.bypass.cooldown")).thenReturn(false);
         when(transferService.serverExists("survival-2")).thenReturn(true);
         when(transferService.connect(player, "survival-2")).thenReturn(CompletableFuture.completedFuture(true));
 
@@ -112,7 +113,7 @@ class VelocityMessageListenerTest {
         RtpRequest request = new RtpRequest("req-1", playerId, "survival-9", "world", "overworld");
         when(proxyServer.getPlayer(playerId)).thenReturn(Optional.of(player));
         when(player.getUniqueId()).thenReturn(playerId);
-        when(player.hasPermission("rtp.bypass.cooldown")).thenReturn(false);
+        when(player.hasPermission("mcggrtp.bypass.cooldown")).thenReturn(false);
         when(transferService.serverExists("survival-9")).thenReturn(false);
 
         listener.handle(MessageCodec.encodeCreatePendingRtp(request));
@@ -227,7 +228,7 @@ class VelocityMessageListenerTest {
         UUID playerId = UUID.randomUUID();
         when(proxyServer.getPlayer(playerId)).thenReturn(Optional.of(player));
         when(player.getUniqueId()).thenReturn(playerId);
-        when(player.hasPermission("rtp.bypass.cooldown")).thenReturn(false);
+        when(player.hasPermission("mcggrtp.bypass.cooldown")).thenReturn(false);
         when(transferService.serverExists("survival-2")).thenReturn(true);
         when(transferService.connect(player, "survival-2")).thenReturn(CompletableFuture.completedFuture(true));
 
