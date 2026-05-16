@@ -13,7 +13,7 @@ public final class ResourceConfigUpdater {
     private ResourceConfigUpdater() {
     }
 
-    public static void updateYamlResource(JavaPlugin plugin, String resourceName) {
+    public static UpdateResult updateYamlResource(JavaPlugin plugin, String resourceName) {
         File dataFolder = plugin.getDataFolder();
         if (!dataFolder.exists() && !dataFolder.mkdirs()) {
             throw new IllegalStateException("Could not create plugin data folder");
@@ -22,7 +22,7 @@ public final class ResourceConfigUpdater {
         File targetFile = new File(dataFolder, resourceName);
         if (!targetFile.exists()) {
             plugin.saveResource(resourceName, false);
-            return;
+            return new UpdateResult(resourceName, true, 0, true);
         }
 
         YamlConfiguration existing = YamlConfiguration.loadConfiguration(targetFile);
@@ -31,8 +31,9 @@ public final class ResourceConfigUpdater {
                 StandardCharsets.UTF_8
         ));
 
-        if (!mergeMissing(existing, defaults, null)) {
-            return;
+        MergeStats stats = mergeMissing(existing, defaults, null);
+        if (!stats.changed()) {
+            return new UpdateResult(resourceName, false, 0, false);
         }
 
         try {
@@ -40,10 +41,12 @@ public final class ResourceConfigUpdater {
         } catch (IOException exception) {
             throw new IllegalStateException("Could not update " + resourceName, exception);
         }
+        return new UpdateResult(resourceName, false, stats.addedKeys(), true);
     }
 
-    private static boolean mergeMissing(YamlConfiguration existing, ConfigurationSection defaults, String path) {
+    private static MergeStats mergeMissing(YamlConfiguration existing, ConfigurationSection defaults, String path) {
         boolean changed = false;
+        int addedKeys = 0;
         for (String key : defaults.getKeys(false)) {
             String childPath = path == null ? key : path + "." + key;
             Object defaultValue = defaults.get(key);
@@ -51,16 +54,26 @@ public final class ResourceConfigUpdater {
                 if (!existing.isConfigurationSection(childPath) && !existing.contains(childPath)) {
                     existing.createSection(childPath);
                     changed = true;
+                    addedKeys++;
                 }
-                changed |= mergeMissing(existing, defaultSection, childPath);
+                MergeStats nestedStats = mergeMissing(existing, defaultSection, childPath);
+                changed |= nestedStats.changed();
+                addedKeys += nestedStats.addedKeys();
                 continue;
             }
 
             if (!existing.contains(childPath)) {
                 existing.set(childPath, defaultValue);
                 changed = true;
+                addedKeys++;
             }
         }
-        return changed;
+        return new MergeStats(changed, addedKeys);
+    }
+
+    public record UpdateResult(String resourceName, boolean created, int addedKeys, boolean changed) {
+    }
+
+    private record MergeStats(boolean changed, int addedKeys) {
     }
 }

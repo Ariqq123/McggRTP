@@ -81,8 +81,19 @@ public class McggRTPPaper extends JavaPlugin {
 
     private void updateBundledConfigs() {
         saveDefaultConfig();
-        ResourceConfigUpdater.updateYamlResource(this, "config.yml");
-        ResourceConfigUpdater.updateYamlResource(this, "messages.yml");
+        logResourceUpdate(ResourceConfigUpdater.updateYamlResource(this, "config.yml"));
+        logResourceUpdate(ResourceConfigUpdater.updateYamlResource(this, "messages.yml"));
+    }
+
+    private void logResourceUpdate(ResourceConfigUpdater.UpdateResult result) {
+        if (!result.changed()) {
+            return;
+        }
+        if (result.created()) {
+            getLogger().info("Created default " + result.resourceName());
+            return;
+        }
+        getLogger().info("Updated " + result.resourceName() + " with " + result.addedKeys() + " missing default key(s)");
     }
 
     private void registerRtpCommand(RtpCommand command) {

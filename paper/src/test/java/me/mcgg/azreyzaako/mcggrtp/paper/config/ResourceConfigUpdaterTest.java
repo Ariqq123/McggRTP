@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import java.io.File;
 import me.mcgg.azreyzaako.mcggrtp.paper.McggRTPPaper;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -84,5 +83,32 @@ class ResourceConfigUpdaterTest {
         assertEquals(Material.LIME_WOOL, plugin.configModel().serverMenu().onlineMaterial());
         assertEquals("[Custom] Denied", plain.serialize(plugin.messages().text("no-permission")));
         assertNotNull(plugin.messages().text("menu-back-name"));
+    }
+
+    @Test
+    void updaterReportsCreatedAndMergedResourceChanges() throws Exception {
+        File messagesFile = new File(plugin.getDataFolder(), "messages.yml");
+        String original = java.nio.file.Files.readString(messagesFile.toPath());
+
+        assertTrue(messagesFile.delete());
+        ResourceConfigUpdater.UpdateResult created = ResourceConfigUpdater.updateYamlResource(plugin, "messages.yml");
+        assertTrue(created.created());
+        assertTrue(created.changed());
+        assertEquals("messages.yml", created.resourceName());
+
+        YamlConfiguration customMessages = YamlConfiguration.loadConfiguration(messagesFile);
+        customMessages.set("menu-back-name", null);
+        customMessages.save(messagesFile);
+
+        ResourceConfigUpdater.UpdateResult merged = ResourceConfigUpdater.updateYamlResource(plugin, "messages.yml");
+        assertFalse(merged.created());
+        assertTrue(merged.changed());
+        assertEquals(1, merged.addedKeys());
+
+        ResourceConfigUpdater.UpdateResult unchanged = ResourceConfigUpdater.updateYamlResource(plugin, "messages.yml");
+        assertFalse(unchanged.changed());
+        assertEquals(0, unchanged.addedKeys());
+
+        java.nio.file.Files.writeString(messagesFile.toPath(), original);
     }
 }
