@@ -295,6 +295,12 @@ The generated report is written to:
 
 - `.integration/runtime/stress-report.json`
 
+Validation evidence reference:
+
+- Date: `2026-05-16`
+- Commit: `eb50f5e86af3b780264b68d8a5346e4da3363a05`
+- Artifact path: `.integration/runtime/stress-report.json`
+
 ## Constraints
 
 - McggRTP is designed for Velocity plus Paper. It is not a standalone single-jar Bukkit plugin.
