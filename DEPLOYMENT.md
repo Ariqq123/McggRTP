@@ -69,20 +69,20 @@ cooldowns:
   server-permission-prefix: "mcggrtp.server."
 
 servers:
-  survival-1:
-    display-name: "&aSurvival 1"
+  server-1:
+    display-name: "&aServer 1"
     enabled: true
-  survival-2:
-    display-name: "&aSurvival 2"
+  server-2:
+    display-name: "&aServer 2"
     enabled: true
 
 dimensions:
   overworld:
-    servers: ["survival-1", "survival-2"]
+    servers: ["server-1", "server-2"]
   nether:
-    servers: ["survival-1"]
+    servers: ["server-1"]
   end:
-    servers: ["survival-1"]
+    servers: ["server-1"]
 ```
 
 ## Configure Velocity forwarding
@@ -98,9 +98,9 @@ Your `[servers]` block must use the same server ids referenced in McggRTP config
 
 ```toml
 [servers]
-survival-1 = "127.0.0.1:25566"
-survival-2 = "127.0.0.1:25567"
-try = ["survival-1"]
+server-1 = "127.0.0.1:25566"
+server-2 = "127.0.0.1:25567"
+try = ["server-1"]
 ```
 
 ## Install on each Paper backend
@@ -130,34 +130,34 @@ In each backend `plugins/McggRTP-Paper/config.yml`, set:
 - RTP settings per world
 - adaptive RTP throttle settings
 
-Example for `survival-1`:
+Example for `server-1`:
 
 ```yml
 debug:
   enabled: false
 
 network:
-  current-server: "survival-1"
+  current-server: "server-1"
   server-permission-prefix: "mcggrtp.server."
   dimensions:
     overworld:
-      servers: ["survival-1", "survival-2"]
+      servers: ["server-1", "server-2"]
     nether:
-      servers: ["survival-1"]
+      servers: ["server-1"]
     end:
-      servers: ["survival-1"]
+      servers: ["server-1"]
   servers:
-    survival-1:
-      display-name: "&aSurvival 1"
-    survival-2:
-      display-name: "&aSurvival 2"
+    server-1:
+      display-name: "&aServer 1"
+    server-2:
+      display-name: "&aServer 2"
 ```
 
-On `survival-2`, change only:
+On `server-2`, change only:
 
 ```yml
 network:
-  current-server: "survival-2"
+  current-server: "server-2"
 ```
 
 For production load, tune Paper-side concurrency under `rtp`:
@@ -197,7 +197,7 @@ Server permissions are dynamic by default. If you omit `permission` for a server
 McggRTP derives `<server-permission-prefix><server-id>`.
 Derived server permissions are registered as default-allowed on Paper, so players do not need op just to use configured RTP servers.
 Examples:
-- with `mcggrtp.server.`: `survival-2` -> `mcggrtp.server.survival-2`
+- with `mcggrtp.server.`: `server-2` -> `mcggrtp.server.server-2`
 - with `mcgg.server.`: `skyblock321` -> `mcgg.server.skyblock321`
 
 World-name entries must match real Bukkit world names on that backend:
@@ -258,8 +258,8 @@ Recommended:
 
 Test these:
 
-- `/rtp` on `survival-1` to `survival-1`
-- `/rtp` on `survival-1` to `survival-2`
+- `/rtp` on `server-1` to `server-1`
+- `/rtp` on `server-1` to `server-2`
 - Overworld RTP
 - Nether RTP
 - End RTP

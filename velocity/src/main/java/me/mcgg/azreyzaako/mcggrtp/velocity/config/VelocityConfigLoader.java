@@ -19,7 +19,7 @@ public final class VelocityConfigLoader {
             # Notes:
             # - `plugin-message-channel` should stay `mcggrtp:main` unless the code
             #   is changed on both the Paper and Velocity plugins.
-            # - Server ids like `survival-1` and `survival-2` must match:
+            # - Server ids like `server-1` and `server-2` must match:
             #   1. the names used in Velocity's `[servers]` block
             #   2. `network.current-server` on each Paper backend
             #
@@ -39,20 +39,20 @@ public final class VelocityConfigLoader {
             servers:
               # If a server entry omits `permission`, McggRTP derives it as
               # `mcggrtp.server.<server-id>`.
-              survival-1:
-                display-name: "&aSurvival 1"
+              server-1:
+                display-name: "&aServer 1"
                 enabled: true
-              survival-2:
-                display-name: "&aSurvival 2"
+              server-2:
+                display-name: "&aServer 2"
                 enabled: true
 
             dimensions:
               overworld:
-                servers: ["survival-1", "survival-2"]
+                servers: ["server-1", "server-2"]
               nether:
-                servers: ["survival-1"]
+                servers: ["server-1"]
               end:
-                servers: ["survival-1"]
+                servers: ["server-1"]
             """;
 
     private final Path dataDirectory;

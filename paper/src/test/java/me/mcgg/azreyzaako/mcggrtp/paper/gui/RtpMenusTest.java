@@ -63,8 +63,8 @@ class RtpMenusTest {
     @Test
     void serverMenuShowsOnlineLockedAndOfflineStatesWithCounts() {
         PlayerMock player = server.addPlayer("viewer");
-        assertEquals("mcggrtp.server.survival-2", plugin.configModel().network().servers().get("survival-2").permission());
-        player.addAttachment(plugin, "mcggrtp.server.survival-2", false);
+        assertEquals("mcggrtp.server.server-2", plugin.configModel().network().servers().get("server-2").permission());
+        player.addAttachment(plugin, "mcggrtp.server.server-2", false);
 
         RtpMenus.openServerMenu(
                 player,
@@ -72,22 +72,22 @@ class RtpMenusTest {
                 plugin.messages(),
                 "overworld",
                 List.of(
-                        new ServerStatusEntry("survival-1", "&aSurvival 1", true, 4),
-                        new ServerStatusEntry("survival-2", "&aSurvival 2", true, 2),
-                        new ServerStatusEntry("survival-3", "&aSurvival 3", false, 0)
+                        new ServerStatusEntry("server-1", "&aServer 1", true, 4),
+                        new ServerStatusEntry("server-2", "&aServer 2", true, 2),
+                        new ServerStatusEntry("server-3", "&aServer 3", false, 0)
                 )
         );
 
         ItemStack online = player.getOpenInventory().getTopInventory().getItem(12);
         assertEquals(Material.LIME_WOOL, online.getType());
-        assertEquals("Survival 1 (Current)", plain.serialize(online.getItemMeta().displayName()));
+        assertEquals("Server 1 (Current)", plain.serialize(online.getItemMeta().displayName()));
         assertTrue(loreLines(online).contains("Players online: 4"));
         assertTrue(loreLines(online).contains("This is your current server."));
-        assertTrue(loreLines(online).contains("Click to RTP via survival-1"));
+        assertTrue(loreLines(online).contains("Click to RTP via server-1"));
 
         ItemStack locked = player.getOpenInventory().getTopInventory().getItem(13);
         assertEquals(Material.LIME_WOOL, locked.getType());
-        assertEquals("Survival 2", plain.serialize(locked.getItemMeta().displayName()));
+        assertEquals("Server 2", plain.serialize(locked.getItemMeta().displayName()));
         assertTrue(loreLines(locked).contains("You do not have permission for this server."));
 
         ItemStack offline = player.getOpenInventory().getTopInventory().getItem(14);

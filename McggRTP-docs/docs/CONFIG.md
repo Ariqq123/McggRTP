@@ -105,36 +105,36 @@ cooldowns:
   bypass-permission: "rtp.bypass.cooldown"
 
 servers:
-  survival-1:
-    display-name: "&aSurvival 1"
+  server-1:
+    display-name: "&aServer 1"
     enabled: true
     permission: "rtp.server.survival1"
 
-  survival-2:
-    display-name: "&aSurvival 2"
+  server-2:
+    display-name: "&aServer 2"
     enabled: true
     permission: "rtp.server.survival2"
 
-  survival-3:
-    display-name: "&aSurvival 3"
+  server-3:
+    display-name: "&aServer 3"
     enabled: true
     permission: "rtp.server.survival3"
 
 dimensions:
   overworld:
     servers:
-      - survival-1
-      - survival-2
-      - survival-3
+      - server-1
+      - server-2
+      - server-3
 
   nether:
     servers:
-      - survival-1
-      - survival-2
+      - server-1
+      - server-2
 
   end:
     servers:
-      - survival-1
+      - server-1
 ```
 
 ## Messages config

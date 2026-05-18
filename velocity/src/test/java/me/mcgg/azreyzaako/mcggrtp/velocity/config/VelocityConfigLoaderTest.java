@@ -22,7 +22,7 @@ class VelocityConfigLoaderTest {
 
         assertTrue(Files.exists(tempDir.resolve("config.yml")));
         assertFalse(config.debugEnabled());
-        assertEquals("mcggrtp.server.survival-2", config.servers().get("survival-2").permission());
+        assertEquals("mcggrtp.server.server-2", config.servers().get("server-2").permission());
     }
 
     @Test
@@ -42,13 +42,13 @@ class VelocityConfigLoaderTest {
                   bypass-permission: "mcggrtp.bypass.cooldown"
 
                 servers:
-                  survival-1:
-                    display-name: "&aSurvival 1"
+                  server-1:
+                    display-name: "&aServer 1"
                     enabled: true
 
                 dimensions:
                   overworld:
-                    servers: ["survival-1"]
+                    servers: ["server-1"]
                 """);
         VelocityConfigLoader loader = new VelocityConfigLoader(tempDir, org.mockito.Mockito.mock(Logger.class));
 

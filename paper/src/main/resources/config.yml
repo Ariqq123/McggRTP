@@ -4,7 +4,7 @@
 #   message channel `mcggrtp:main`. That channel is registered by the plugin
 #   in code; you do not create it manually here.
 # - `network.current-server` must match the server id used on Velocity for this
-#   backend, for example `survival-1` or `survival-2`.
+#   backend, for example `server-1` or `server-2`.
 # - On startup and `/rtp reload`, McggRTP merges any newly added default keys
 #   into this file without overwriting your existing values.
 
@@ -64,22 +64,22 @@ sounds:
 
 network:
   # Must match the server name configured on Velocity for this backend.
-  current-server: "survival-1"
+  current-server: "server-1"
   server-permission-prefix: "mcggrtp.server."
   # Keep the default network small. Add more servers here and in Velocity when
   # your network actually has them.
   dimensions:
     overworld:
-      servers: [ "survival-1", "survival-2" ]
+      servers: [ "server-1", "server-2" ]
     nether:
-      servers: [ "survival-1" ]
+      servers: [ "server-1" ]
     end:
-      servers: [ "survival-1" ]
+      servers: [ "server-1" ]
   servers:
-    survival-1:
-      display-name: "&aSurvival 1"
-    survival-2:
-      display-name: "&aSurvival 2"
+    server-1:
+      display-name: "&aServer 1"
+    server-2:
+      display-name: "&aServer 2"
   # If a server entry omits `permission`, McggRTP derives it as:
   # `<server-permission-prefix><server-id>`
   # Example: with `server-permission-prefix: "mcgg.server."`,

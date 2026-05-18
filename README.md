@@ -164,29 +164,29 @@ cooldowns:
   server-permission-prefix: "mcggrtp.server."
 
 servers:
-  survival-1:
-    display-name: "&aSurvival 1"
+  server-1:
+    display-name: "&aServer 1"
     enabled: true
-  survival-2:
-    display-name: "&aSurvival 2"
+  server-2:
+    display-name: "&aServer 2"
     enabled: true
 
 dimensions:
   overworld:
-    servers: ["survival-1", "survival-2"]
+    servers: ["server-1", "server-2"]
   nether:
-    servers: ["survival-1"]
+    servers: ["server-1"]
   end:
-    servers: ["survival-1"]
+    servers: ["server-1"]
 ```
 
 Velocity `[servers]` names must match McggRTP server ids:
 
 ```toml
 [servers]
-survival-1 = "127.0.0.1:25566"
-survival-2 = "127.0.0.1:25567"
-try = ["survival-1"]
+server-1 = "127.0.0.1:25566"
+server-2 = "127.0.0.1:25567"
+try = ["server-1"]
 ```
 
 ## Paper Configuration
@@ -200,14 +200,14 @@ Each backend must set its own Velocity server id:
 
 ```yml
 network:
-  current-server: "survival-1"
+  current-server: "server-1"
 ```
 
-On the `survival-2` backend, use:
+On the `server-2` backend, use:
 
 ```yml
 network:
-  current-server: "survival-2"
+  current-server: "server-2"
 ```
 
 The `network.current-server` value must match the server name configured in Velocity.
@@ -290,7 +290,7 @@ Server permissions are dynamic. If a server entry omits `permission`, McggRTP de
 
 Examples:
 
-- `survival-2` with prefix `mcggrtp.server.` becomes `mcggrtp.server.survival-2`
+- `server-2` with prefix `mcggrtp.server.` becomes `mcggrtp.server.server-2`
 - `skyblock321` with prefix `mcgg.server.` becomes `mcgg.server.skyblock321`
 
 Use LuckPerms to deny or grant specific `mcggrtp.server.<server-id>` permissions when you want per-server RTP access control.
@@ -299,8 +299,8 @@ Recommended LuckPerms examples:
 
 ```text
 /lp group default permission set mcggrtp.use true
-/lp group default permission set mcggrtp.server.survival-2 false
-/lp group vip permission set mcggrtp.server.survival-2 true
+/lp group default permission set mcggrtp.server.server-2 false
+/lp group vip permission set mcggrtp.server.server-2 true
 /lp group admin permission set mcggrtp.admin.reload true
 ```
 

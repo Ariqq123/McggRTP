@@ -65,8 +65,8 @@
 
 ## Final testing
 
-- [ ] Test `/rtp` from survival-1 to survival-1.
-- [ ] Test `/rtp` from survival-1 to survival-2.
+- [ ] Test `/rtp` from server-1 to server-1.
+- [ ] Test `/rtp` from server-1 to server-2.
 - [ ] Test Overworld RTP.
 - [ ] Test Nether RTP.
 - [ ] Test End RTP.
