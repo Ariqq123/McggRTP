@@ -17,6 +17,7 @@ public record PaperConfig(
         int cooldownSeconds,
         int maxConcurrentSearches,
         AdaptiveThrottleSettings adaptiveThrottle,
+        LocationPoolSettings locationPool,
         Map<String, WorldRtpSettings> worlds
 ) {
     public record DebugSettings(boolean enabled) {
@@ -66,6 +67,15 @@ public record PaperConfig(
             double maxMspt,
             int queueStartDelayTicks,
             int metricsLogInterval
+    ) {
+    }
+
+    public record LocationPoolSettings(
+            boolean enabled,
+            int targetSize,
+            int refillIntervalTicks,
+            int maxRefillAttempts,
+            boolean allowGenerateNewChunks
     ) {
     }
 

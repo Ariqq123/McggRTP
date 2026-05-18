@@ -217,6 +217,7 @@ class RtpTeleportServiceTest {
                 300,
                 8,
                 new PaperConfig.AdaptiveThrottleSettings(false, 1, 18.5D, 80.0D, 0, 25),
+                new PaperConfig.LocationPoolSettings(false, 0, 100, 1, false),
                 Map.of("world", new PaperConfig.WorldRtpSettings(true, 0, 0, 0, 0, 2, false, Set.of(), Set.of(org.bukkit.Material.LAVA)))
         );
     }
@@ -232,6 +233,7 @@ class RtpTeleportServiceTest {
                 config().cooldownSeconds(),
                 1,
                 config().adaptiveThrottle(),
+                config().locationPool(),
                 config().worlds()
         );
     }

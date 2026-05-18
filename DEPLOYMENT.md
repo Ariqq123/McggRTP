@@ -172,9 +172,17 @@ rtp:
     max-mspt: 80.0
     queue-start-delay-ticks: 2
     metrics-log-interval: 25
+  location-pool:
+    enabled: true
+    target-size: 8
+    refill-interval-ticks: 200
+    max-refill-attempts: 8
+    allow-generate-new-chunks: false
 ```
 
 The adaptive throttle lowers active RTP searches when TPS/MSPT crosses the configured thresholds and recovers gradually when the backend is healthy. Enable `debug.enabled` to log queue wait, search duration, attempts, generated-first ratio, and the current adaptive limit.
+
+The location pool precomputes safe destinations only while the RTP queue is idle. With `allow-generate-new-chunks: false`, it uses already-generated chunks only and avoids background terrain generation. Enable background generation only after you are comfortable with the server's idle-time chunk load.
 
 Warmup is enforced on the Paper backend before either:
 - a same-server RTP cooldown check and local teleport

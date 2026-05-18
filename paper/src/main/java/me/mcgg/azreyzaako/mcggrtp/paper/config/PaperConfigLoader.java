@@ -104,6 +104,7 @@ public final class PaperConfigLoader {
         Map<String, PaperConfig.WorldRtpSettings> worlds = new LinkedHashMap<>();
         ConfigurationSection rtp = root.getConfigurationSection("rtp");
         ConfigurationSection adaptiveThrottle = rtp == null ? null : rtp.getConfigurationSection("adaptive-throttle");
+        ConfigurationSection locationPool = rtp == null ? null : rtp.getConfigurationSection("location-pool");
         ConfigurationSection worldsSection = rtp == null ? null : rtp.getConfigurationSection("worlds");
         if (worldsSection != null) {
             for (String key : worldsSection.getKeys(false)) {
@@ -152,6 +153,13 @@ public final class PaperConfigLoader {
                         number(adaptiveThrottle, "max-mspt", 80.0D),
                         Math.max(0, integer(adaptiveThrottle, "queue-start-delay-ticks", 2)),
                         Math.max(1, integer(adaptiveThrottle, "metrics-log-interval", 25))
+                ),
+                new PaperConfig.LocationPoolSettings(
+                        locationPool == null || locationPool.getBoolean("enabled", true),
+                        Math.max(0, integer(locationPool, "target-size", 8)),
+                        Math.max(20, integer(locationPool, "refill-interval-ticks", 200)),
+                        Math.max(1, integer(locationPool, "max-refill-attempts", 8)),
+                        locationPool != null && locationPool.getBoolean("allow-generate-new-chunks", false)
                 ),
                 Map.copyOf(worlds)
         );

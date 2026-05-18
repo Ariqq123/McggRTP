@@ -178,11 +178,19 @@ rtp:
     max-mspt: 80.0
     queue-start-delay-ticks: 2
     metrics-log-interval: 25
+  location-pool:
+    enabled: true
+    target-size: 8
+    refill-interval-ticks: 200
+    max-refill-attempts: 8
+    allow-generate-new-chunks: false
 ```
 
 `max-concurrent-searches` limits how many RTP searches and chunk loads can run at the same time on a backend. Extra RTP requests wait in an in-memory queue and receive the `search-queued` message.
 
 `adaptive-throttle` lets Paper reduce active RTP searches when backend health drops below the configured TPS/MSPT thresholds, then gradually recover back to `max-concurrent-searches`. When `debug.enabled` is true, McggRTP logs queue wait, search duration, attempt count, generated-chunk ratio, and current adaptive limit every `metrics-log-interval` completed RTP jobs.
+
+`location-pool` precomputes safe destinations while the RTP queue is idle. By default it only reuses already-generated chunks, so it will not create new terrain in the background or compete with active player RTP requests. Set `allow-generate-new-chunks: true` only if you explicitly want the pool to pregenerate terrain during idle time.
 
 ## Velocity Forwarding
 

@@ -217,6 +217,7 @@ class RtpGuiListenerTest {
                 300,
                 8,
                 new PaperConfig.AdaptiveThrottleSettings(false, 1, 18.5D, 80.0D, 0, 25),
+                new PaperConfig.LocationPoolSettings(false, 0, 100, 1, false),
                 Map.of("world", new PaperConfig.WorldRtpSettings(true, 0, 0, 0, 0, 1, false, Set.of(Biome.PLAINS), Set.of()))
         );
     }
@@ -237,6 +238,7 @@ class RtpGuiListenerTest {
                 config().cooldownSeconds(),
                 config().maxConcurrentSearches(),
                 config().adaptiveThrottle(),
+                config().locationPool(),
                 config().worlds()
         );
     }

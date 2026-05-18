@@ -102,6 +102,16 @@ rtp:
     queue-start-delay-ticks: 2
     # Debug metrics are logged after this many completed RTP jobs.
     metrics-log-interval: 25
+  location-pool:
+    # Precomputes safe RTP destinations gradually so player requests can use a
+    # ready location before falling back to a live search.
+    enabled: true
+    target-size: 8
+    refill-interval-ticks: 200
+    max-refill-attempts: 8
+    # Keep false for production safety: the pool will reuse already-generated
+    # chunks and will not create new terrain in the background.
+    allow-generate-new-chunks: false
   worlds:
     world:
       enabled: true

@@ -2,7 +2,9 @@ package me.mcgg.azreyzaako.mcggrtp.paper.rtp;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import me.mcgg.azreyzaako.mcggrtp.common.RtpResult;
@@ -23,7 +25,10 @@ public final class RtpTeleportService {
     private final SafeLocationFinder safeLocationFinder;
     private final int maxConcurrentSearches;
     private final PaperConfig.AdaptiveThrottleSettings throttleSettings;
+    private final PaperConfig.LocationPoolSettings locationPoolSettings;
     private final Deque<TeleportJob> queuedSearches = new ArrayDeque<>();
+    private final Map<String, Deque<Location>> locationPools = new HashMap<>();
+    private final Map<String, Boolean> poolRefills = new HashMap<>();
     private final RtpMetrics metrics = new RtpMetrics();
     private int activeSearches;
     private int adaptiveConcurrentSearches;
@@ -44,7 +49,9 @@ public final class RtpTeleportService {
         this.safeLocationFinder = safeLocationFinder;
         this.maxConcurrentSearches = Math.max(1, config.maxConcurrentSearches());
         this.throttleSettings = config.adaptiveThrottle();
+        this.locationPoolSettings = config.locationPool();
         this.adaptiveConcurrentSearches = this.maxConcurrentSearches;
+        startLocationPoolRefill();
     }
 
     public void beginLocalTeleport(Player player, String worldName, String dimension) {
@@ -118,6 +125,18 @@ public final class RtpTeleportService {
         }
 
         player.sendMessage(messages.text("searching"));
+        Optional<Location> pooledDestination = takePooledLocation(worldName);
+        if (pooledDestination.isPresent()) {
+            plugin.debug("Using pooled RTP destination player=%s requestId=%s world=%s remainingPool=%d",
+                    player.getUniqueId(),
+                    requestId,
+                    worldName,
+                    poolSize(worldName));
+            recordSearch(job, 0, System.nanoTime() - job.startedAtNanos(), true, true);
+            completeTeleport(job, pooledDestination.get());
+            return;
+        }
+
         long startedAt = System.nanoTime();
         SafeLocationFinder.SearchPlan plan = safeLocationFinder.createPlan(world, settings);
         processCandidates(
@@ -376,6 +395,141 @@ public final class RtpTeleportService {
 
     private int currentSearchLimit() {
         return throttleSettings.enabled() ? adaptiveConcurrentSearches : maxConcurrentSearches;
+    }
+
+    private void startLocationPoolRefill() {
+        if (!locationPoolSettings.enabled() || locationPoolSettings.targetSize() <= 0) {
+            return;
+        }
+        plugin.getServer().getScheduler().runTaskTimer(
+                plugin,
+                this::refillLocationPools,
+                Math.min(20, locationPoolSettings.refillIntervalTicks()),
+                locationPoolSettings.refillIntervalTicks()
+        );
+    }
+
+    private void refillLocationPools() {
+        if (!locationPoolSettings.enabled()) {
+            return;
+        }
+        synchronized (this) {
+            if (activeSearches > 0 || !queuedSearches.isEmpty()) {
+                return;
+            }
+        }
+        for (Map.Entry<String, PaperConfig.WorldRtpSettings> entry : config.worlds().entrySet()) {
+            String worldName = entry.getKey();
+            PaperConfig.WorldRtpSettings settings = entry.getValue();
+            World world = plugin.getServer().getWorld(worldName);
+            if (world == null || settings == null || !settings.enabled()) {
+                continue;
+            }
+            synchronized (this) {
+                if (poolSize(worldName) >= locationPoolSettings.targetSize() || poolRefills.getOrDefault(worldName, false)) {
+                    continue;
+                }
+                poolRefills.put(worldName, true);
+            }
+            SafeLocationFinder.SearchPlan plan = safeLocationFinder.createPlan(world, settings);
+            refillFromCandidates(worldName, world, settings, plan, plan.generatedFirst(), plan.fallback(), 0, 0);
+        }
+    }
+
+    private void refillFromCandidates(String worldName,
+                                      World world,
+                                      PaperConfig.WorldRtpSettings settings,
+                                      SafeLocationFinder.SearchPlan plan,
+                                      List<SafeLocationFinder.Candidate> primary,
+                                      List<SafeLocationFinder.Candidate> fallback,
+                                      int primaryIndex,
+                                      int fallbackIndex) {
+        if (poolSize(worldName) >= locationPoolSettings.targetSize()) {
+            finishPoolRefill(worldName);
+            return;
+        }
+
+        SafeLocationFinder.Candidate candidate;
+        boolean generateChunk;
+        int attempts;
+        if (primaryIndex < primary.size()) {
+            candidate = primary.get(primaryIndex);
+            generateChunk = false;
+            attempts = primaryIndex + 1;
+        } else if (locationPoolSettings.allowGenerateNewChunks()
+                && fallbackIndex < fallback.size()
+                && primary.size() + fallbackIndex < locationPoolSettings.maxRefillAttempts()) {
+            candidate = fallback.get(fallbackIndex);
+            generateChunk = true;
+            attempts = primary.size() + fallbackIndex + 1;
+        } else {
+            plugin.debug("RTP location pool refill exhausted world=%s attempts=%d size=%d target=%d",
+                    worldName,
+                    Math.min(plan.maxAttempts(), locationPoolSettings.maxRefillAttempts()),
+                    poolSize(worldName),
+                    locationPoolSettings.targetSize());
+            finishPoolRefill(worldName);
+            return;
+        }
+
+        world.getChunkAtAsync(candidate.chunkX(), candidate.chunkZ(), generateChunk)
+                .whenComplete((chunk, throwable) -> plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    if (throwable != null) {
+                        plugin.debug("RTP location pool chunk load failed world=%s chunkX=%d chunkZ=%d error=%s",
+                                worldName,
+                                candidate.chunkX(),
+                                candidate.chunkZ(),
+                                throwable.getClass().getSimpleName());
+                        finishPoolRefill(worldName);
+                        return;
+                    }
+
+                    Optional<Location> destination = safeLocationFinder.validate(world, settings, plan, candidate);
+                    if (destination.isPresent()) {
+                        addPooledLocation(worldName, destination.get());
+                        plugin.debug("Added pooled RTP location world=%s attempts=%d size=%d target=%d",
+                                worldName,
+                                attempts,
+                                poolSize(worldName),
+                                locationPoolSettings.targetSize());
+                        finishPoolRefill(worldName);
+                        return;
+                    }
+
+                    int nextPrimary = primaryIndex < primary.size() ? primaryIndex + 1 : primaryIndex;
+                    int nextFallback = primaryIndex < primary.size() ? fallbackIndex : fallbackIndex + 1;
+                    refillFromCandidates(worldName, world, settings, plan, primary, fallback, nextPrimary, nextFallback);
+                }));
+    }
+
+    private Optional<Location> takePooledLocation(String worldName) {
+        synchronized (this) {
+            Deque<Location> pool = locationPools.get(worldName);
+            if (pool == null || pool.isEmpty()) {
+                return Optional.empty();
+            }
+            return Optional.of(pool.removeFirst());
+        }
+    }
+
+    private void addPooledLocation(String worldName, Location location) {
+        synchronized (this) {
+            Deque<Location> pool = locationPools.computeIfAbsent(worldName, ignored -> new ArrayDeque<>());
+            if (pool.size() < locationPoolSettings.targetSize()) {
+                pool.addLast(location);
+            }
+        }
+    }
+
+    private int poolSize(String worldName) {
+        Deque<Location> pool = locationPools.get(worldName);
+        return pool == null ? 0 : pool.size();
+    }
+
+    private void finishPoolRefill(String worldName) {
+        synchronized (this) {
+            poolRefills.put(worldName, false);
+        }
     }
 
     private void startQueuedJob(TeleportJob nextJob) {
