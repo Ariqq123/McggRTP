@@ -1,5 +1,7 @@
 # McggRTP
 
+This folder contains the original design notes for McggRTP. They are kept for project history and architecture study. For current build, deployment, permissions, and validation instructions, use the root [README.md](../README.md), [DEPLOYMENT.md](../DEPLOYMENT.md), and current source code as the authoritative references.
+
 **McggRTP** is a network random teleport plugin designed for Velocity networks with Paper backend servers.
 
 Author: `azreyzaako`  

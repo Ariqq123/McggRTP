@@ -22,6 +22,34 @@ The project builds two deployable plugins:
 
 Use the shaded jars from `paper/build/libs/` and `velocity/build/libs/`. Do not deploy the `-thin` jars.
 
+## Repository Guide
+
+Use this README as the current entry point for building, installing, and understanding the plugin.
+
+Helpful files:
+
+- [DEPLOYMENT.md](DEPLOYMENT.md): step-by-step installation and production configuration guide.
+- [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md): current implementation and validation coverage.
+- [McggRTP-docs/](McggRTP-docs): original design notes and planning references. These are useful for learning the project history, but the root README and current source code are authoritative when behavior differs.
+- [integration/](integration): disposable Velocity + Paper validation harness and Mineflayer stress scripts.
+
+Module layout:
+
+```text
+McggRTP/
+  common/      shared plugin-message records, constants, and codec
+  paper/       Paper command, GUI, warmup, safe-location search, teleport logic
+  velocity/    Velocity cooldowns, server status, pending RTP, server transfer
+  integration/ live-network and stress validation harnesses
+```
+
+Suggested reading order for new contributors:
+
+1. Read the Goal and Architecture sections in this README.
+2. Build the project once with `./gradlew build`.
+3. Read [DEPLOYMENT.md](DEPLOYMENT.md) before installing on a real network.
+4. Check [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) to understand what has already been verified.
+
 ## Features
 
 - `/rtp` opens a GUI instead of teleporting immediately.
@@ -92,6 +120,8 @@ Build outputs:
 
 - `paper/build/libs/McggRTP-paper.jar`
 - `velocity/build/libs/McggRTP-velocity.jar`
+
+The `paper/build/libs/McggRTP-paper-thin.jar` and `velocity/build/libs/McggRTP-velocity-thin.jar` files are intermediate thin jars. Use the shaded jars listed above for server deployment.
 
 ## Deployment
 
@@ -324,6 +354,16 @@ Run live validation with a disposable Velocity plus two Paper servers:
 python3 integration/run_live_validation.py
 ```
 
+The integration harness expects local Paper/Velocity bootstrap artifacts under the paths managed by the scripts. It is intended for project development, not for production servers.
+
+Install Node dependencies before running Mineflayer stress scripts for the first time:
+
+```bash
+cd integration
+npm install
+cd ..
+```
+
 Run local RTP stress validation:
 
 ```bash
@@ -336,7 +376,7 @@ Run cross-server RTP stress validation:
 MCGGRTP_STRESS_MODE=cross MCGGRTP_STRESS_BOT_COUNT=10 python3 integration/run_stress_validation.py
 ```
 
-For cross-server stress, the harness staggers the server-click phase by default. This avoids a known Mineflayer/Velocity protocol artifact where many simultaneous bot transfers can emit malformed configuration-state packets. This does not affect real players; it keeps the stress test focused on McggRTP behavior instead of bot protocol noise.
+For cross-server stress, the harness staggers the server-click phase by default. This avoids a known Mineflayer/Velocity protocol artifact where many simultaneous bot transfers can emit malformed configuration-state packets. The goal is to keep stress validation focused on McggRTP behavior instead of bot protocol noise.
 
 If you need detailed Velocity packet decode logs during harness diagnosis:
 
@@ -344,13 +384,13 @@ If you need detailed Velocity packet decode logs during harness diagnosis:
 MCGGRTP_VELOCITY_PACKET_DECODE_LOGGING=true MCGGRTP_STRESS_MODE=cross MCGGRTP_STRESS_BOT_COUNT=10 python3 integration/run_stress_validation.py
 ```
 
-The latest local stress run completed with:
+Recent local stress evidence:
 
 - `botCount=50`
 - `successCount=50`
 - `failureCount=0`
 
-The latest strict cross-server stress run completed with:
+Recent strict cross-server stress evidence:
 
 - `botCount=10`
 - `successCount=10`
@@ -365,6 +405,7 @@ Validation evidence reference:
 
 - Date: `2026-05-18`
 - Branch: `dev`
+- Commit: `6093276` for strict cross-server harness validation
 - Artifact path: `.integration/runtime/stress-report.json`
 
 ## Constraints

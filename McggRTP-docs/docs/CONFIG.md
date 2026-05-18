@@ -1,6 +1,6 @@
 # McggRTP Config Plan
 
-This file describes suggested configs for the Paper and Velocity plugins.
+This file describes the original suggested configs for the Paper and Velocity plugins. Some names changed during implementation; the current authoritative config examples are in the root `README.md` and `DEPLOYMENT.md`.
 
 ## Paper config.yml
 
@@ -21,7 +21,7 @@ main-menu:
     display-name: "&aOverworld"
     material: GRASS_BLOCK
     world-name: world
-    permission: "rtp.dimension.overworld"
+    permission: "mcggrtp.dimension.overworld"
     lore:
       - "&7Click to choose an overworld server."
 
@@ -30,7 +30,7 @@ main-menu:
     display-name: "&cNether"
     material: NETHERRACK
     world-name: world_nether
-    permission: "rtp.dimension.nether"
+    permission: "mcggrtp.dimension.nether"
     lore:
       - "&7Click to choose a nether server."
       - "&cDangerous dimension."
@@ -40,7 +40,7 @@ main-menu:
     display-name: "&dThe End"
     material: END_STONE
     world-name: world_the_end
-    permission: "rtp.dimension.end"
+    permission: "mcggrtp.dimension.end"
     lore:
       - "&7Click to choose an end server."
 

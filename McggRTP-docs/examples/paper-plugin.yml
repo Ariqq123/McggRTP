@@ -7,17 +7,17 @@ commands:
   rtp:
     description: Open the McggRTP menu.
     usage: /rtp
-    permission: rtp.use
+    permission: mcggrtp.use
 permissions:
-  rtp.use:
+  mcggrtp.use:
     default: true
-  rtp.dimension.overworld:
+  mcggrtp.dimension.overworld:
     default: true
-  rtp.dimension.nether:
+  mcggrtp.dimension.nether:
     default: true
-  rtp.dimension.end:
+  mcggrtp.dimension.end:
     default: true
-  rtp.bypass.cooldown:
+  mcggrtp.bypass.cooldown:
     default: op
-  rtp.admin.reload:
+  mcggrtp.admin.reload:
     default: op
