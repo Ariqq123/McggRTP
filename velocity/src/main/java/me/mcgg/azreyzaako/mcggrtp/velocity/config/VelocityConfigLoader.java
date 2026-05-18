@@ -45,15 +45,12 @@ public final class VelocityConfigLoader {
               survival-2:
                 display-name: "&aSurvival 2"
                 enabled: true
-              survival-3:
-                display-name: "&aSurvival 3"
-                enabled: true
 
             dimensions:
               overworld:
-                servers: ["survival-1", "survival-2", "survival-3"]
-              nether:
                 servers: ["survival-1", "survival-2"]
+              nether:
+                servers: ["survival-1"]
               end:
                 servers: ["survival-1"]
             """;

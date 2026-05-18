@@ -145,7 +145,7 @@ public final class PaperConfigLoader {
                         Map.copyOf(networkServers)
                 ),
                 rtp == null ? 300 : rtp.getInt("cooldown-seconds", 300),
-                rtp == null ? 8 : Math.max(1, rtp.getInt("max-concurrent-searches", 8)),
+                rtp == null ? 4 : Math.max(1, rtp.getInt("max-concurrent-searches", 4)),
                 new PaperConfig.AdaptiveThrottleSettings(
                         adaptiveThrottle == null || adaptiveThrottle.getBoolean("enabled", true),
                         Math.max(1, integer(adaptiveThrottle, "min-concurrent-searches", 1)),
@@ -156,9 +156,9 @@ public final class PaperConfigLoader {
                 ),
                 new PaperConfig.LocationPoolSettings(
                         locationPool == null || locationPool.getBoolean("enabled", true),
-                        Math.max(0, integer(locationPool, "target-size", 8)),
+                        Math.max(0, integer(locationPool, "target-size", 4)),
                         Math.max(20, integer(locationPool, "refill-interval-ticks", 200)),
-                        Math.max(1, integer(locationPool, "max-refill-attempts", 8)),
+                        Math.max(1, integer(locationPool, "max-refill-attempts", 4)),
                         locationPool != null && locationPool.getBoolean("allow-generate-new-chunks", false)
                 ),
                 Map.copyOf(worlds)

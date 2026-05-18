@@ -66,11 +66,13 @@ network:
   # Must match the server name configured on Velocity for this backend.
   current-server: "survival-1"
   server-permission-prefix: "mcggrtp.server."
+  # Keep the default network small. Add more servers here and in Velocity when
+  # your network actually has them.
   dimensions:
     overworld:
-      servers: [ "survival-1", "survival-2", "survival-3" ]
-    nether:
       servers: [ "survival-1", "survival-2" ]
+    nether:
+      servers: [ "survival-1" ]
     end:
       servers: [ "survival-1" ]
   servers:
@@ -78,8 +80,6 @@ network:
       display-name: "&aSurvival 1"
     survival-2:
       display-name: "&aSurvival 2"
-    survival-3:
-      display-name: "&aSurvival 3"
   # If a server entry omits `permission`, McggRTP derives it as:
   # `<server-permission-prefix><server-id>`
   # Example: with `server-permission-prefix: "mcgg.server."`,
@@ -88,8 +88,9 @@ network:
 rtp:
   cooldown-seconds: 300
   # Limits how many RTP searches/chunk loads can run at the same time on this
-  # backend. Extra RTP requests wait in a small in-memory queue.
-  max-concurrent-searches: 8
+  # backend. Extra RTP requests wait in a small in-memory queue. Start modestly;
+  # increase only after watching TPS/MSPT under real load.
+  max-concurrent-searches: 4
   adaptive-throttle:
     # Dynamically reduces concurrent RTP searches when the backend is under
     # load, then restores capacity gradually when TPS/MSPT recover.
@@ -106,9 +107,9 @@ rtp:
     # Precomputes safe RTP destinations gradually so player requests can use a
     # ready location before falling back to a live search.
     enabled: true
-    target-size: 8
+    target-size: 4
     refill-interval-ticks: 200
-    max-refill-attempts: 8
+    max-refill-attempts: 4
     # Keep false for production safety: the pool will reuse already-generated
     # chunks and will not create new terrain in the background.
     allow-generate-new-chunks: false

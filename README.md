@@ -212,12 +212,14 @@ network:
 
 The `network.current-server` value must match the server name configured in Velocity.
 
+The generated defaults intentionally describe a small two-server network. Add more server ids only after they exist in Velocity and in every relevant Paper config.
+
 Production RTP concurrency is controlled here:
 
 ```yml
 rtp:
   cooldown-seconds: 300
-  max-concurrent-searches: 8
+  max-concurrent-searches: 4
   adaptive-throttle:
     enabled: true
     min-concurrent-searches: 1
@@ -227,13 +229,13 @@ rtp:
     metrics-log-interval: 25
   location-pool:
     enabled: true
-    target-size: 8
+    target-size: 4
     refill-interval-ticks: 200
-    max-refill-attempts: 8
+    max-refill-attempts: 4
     allow-generate-new-chunks: false
 ```
 
-`max-concurrent-searches` limits how many RTP searches and chunk loads can run at the same time on a backend. Extra RTP requests wait in an in-memory queue and receive the `search-queued` message.
+`max-concurrent-searches` limits how many RTP searches and chunk loads can run at the same time on a backend. Extra RTP requests wait in an in-memory queue and receive the `search-queued` message. Start with the conservative default, then raise it after watching TPS/MSPT on your hardware.
 
 `adaptive-throttle` lets Paper reduce active RTP searches when backend health drops below the configured TPS/MSPT thresholds, then gradually recover back to `max-concurrent-searches`. When `debug.enabled` is true, McggRTP logs queue wait, search duration, attempt count, generated-chunk ratio, and current adaptive limit every `metrics-log-interval` completed RTP jobs.
 
