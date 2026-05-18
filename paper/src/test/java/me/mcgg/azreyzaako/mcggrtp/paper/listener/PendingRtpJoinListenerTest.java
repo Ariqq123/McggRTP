@@ -61,6 +61,7 @@ class PendingRtpJoinListenerTest {
                 new PaperConfig.NetworkSettings("survival-1", "mcggrtp.server.", java.util.Map.of(), java.util.Map.of()),
                 300,
                 8,
+                new PaperConfig.AdaptiveThrottleSettings(false, 1, 18.5D, 80.0D, 0, 25),
                 java.util.Map.of("world", new PaperConfig.WorldRtpSettings(true, 0, 0, 0, 0, 1, false, java.util.Set.of(Biome.PLAINS), java.util.Set.of()))
         );
     }

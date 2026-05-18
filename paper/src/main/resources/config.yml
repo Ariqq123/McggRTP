@@ -90,6 +90,18 @@ rtp:
   # Limits how many RTP searches/chunk loads can run at the same time on this
   # backend. Extra RTP requests wait in a small in-memory queue.
   max-concurrent-searches: 8
+  adaptive-throttle:
+    # Dynamically reduces concurrent RTP searches when the backend is under
+    # load, then restores capacity gradually when TPS/MSPT recover.
+    enabled: true
+    min-concurrent-searches: 1
+    min-tps: 18.5
+    max-mspt: 80.0
+    # Adds a tiny gap before starting the next queued RTP job. This smooths
+    # chunk task spikes during mass RTP events.
+    queue-start-delay-ticks: 2
+    # Debug metrics are logged after this many completed RTP jobs.
+    metrics-log-interval: 25
   worlds:
     world:
       enabled: true

@@ -16,6 +16,7 @@ public record PaperConfig(
         NetworkSettings network,
         int cooldownSeconds,
         int maxConcurrentSearches,
+        AdaptiveThrottleSettings adaptiveThrottle,
         Map<String, WorldRtpSettings> worlds
 ) {
     public record DebugSettings(boolean enabled) {
@@ -56,6 +57,16 @@ public record PaperConfig(
     }
 
     public record NetworkServer(String id, String displayName, String permission) {
+    }
+
+    public record AdaptiveThrottleSettings(
+            boolean enabled,
+            int minConcurrentSearches,
+            double minTps,
+            double maxMspt,
+            int queueStartDelayTicks,
+            int metricsLogInterval
+    ) {
     }
 
     public record WorldRtpSettings(

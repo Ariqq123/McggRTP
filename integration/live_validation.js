@@ -17,6 +17,10 @@ const chatLog = []
 let finalTransferStarted = false
 let finalResultPrinted = false
 const SUCCESS_MESSAGE = /\[S1\].*Teleported/i
+const OVERWORLD_SURVIVAL_1_SLOT = 12
+const OVERWORLD_SURVIVAL_2_SLOT = 13
+const OVERWORLD_SURVIVAL_3_SLOT = 14
+const SINGLE_SERVER_SLOT = 13
 
 bot.on('message', (message) => {
   chatLog.push(message.toString())
@@ -39,14 +43,14 @@ bot.on('kicked', (reason) => {
 bot.once('spawn', async () => {
   try {
     await sleep(2000)
-    await runLocalTeleport('same-server-overworld', 11, 0, /overworld/i, { minDistance: 16 })
+    await runLocalTeleport('same-server-overworld', 11, OVERWORLD_SURVIVAL_1_SLOT, /overworld/i, { minDistance: 16 })
     await runCooldownCheck()
     await sleep(3500)
-    await runLocalTeleport('same-server-nether', 13, 0, /nether/i)
+    await runLocalTeleport('same-server-nether', 13, SINGLE_SERVER_SLOT, /nether/i)
     await sleep(3500)
-    await runLocalTeleport('same-server-end', 15, 0, /end/i)
+    await runLocalTeleport('same-server-end', 15, SINGLE_SERVER_SLOT, /end/i)
     await sleep(3500)
-    await runFeedbackScenario('offline-target', 11, 2, /server is offline/i, 'offline-message')
+    await runFeedbackScenario('offline-target', 11, OVERWORLD_SURVIVAL_3_SLOT, /server is offline/i, 'offline-message')
     await sleep(3500)
     await runCrossServerOverworld()
     await sleep(6000)
@@ -70,13 +74,13 @@ async function runSameServerOverworld() {
 
 async function runCrossServerOverworld() {
   finalTransferStarted = true
-  await selectRtp(11, 1)
+  await selectRtp(11, OVERWORLD_SURVIVAL_2_SLOT)
   await waitForMessage(/Sending you to .*survival-2/i)
   recordResult('cross-server-overworld', { status: 'requested' })
 }
 
 async function runCooldownCheck() {
-  await runFeedbackScenario('cooldown', 11, 0, /must wait/i, 'blocked')
+  await runFeedbackScenario('cooldown', 11, OVERWORLD_SURVIVAL_1_SLOT, /must wait/i, 'blocked')
 }
 
 async function runLocalTeleport(name, dimensionSlot, serverSlot, expectedDimension, options = {}) {

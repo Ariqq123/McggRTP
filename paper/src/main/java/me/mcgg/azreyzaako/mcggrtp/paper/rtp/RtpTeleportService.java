@@ -22,8 +22,11 @@ public final class RtpTeleportService {
     private final PaperMessageBridge messageBridge;
     private final SafeLocationFinder safeLocationFinder;
     private final int maxConcurrentSearches;
+    private final PaperConfig.AdaptiveThrottleSettings throttleSettings;
     private final Deque<TeleportJob> queuedSearches = new ArrayDeque<>();
+    private final RtpMetrics metrics = new RtpMetrics();
     private int activeSearches;
+    private int adaptiveConcurrentSearches;
 
     public RtpTeleportService(McggRTPPaper plugin, PaperConfig config, MessageBundle messages, PaperMessageBridge messageBridge) {
         this(plugin, config, messages, messageBridge, new SafeLocationFinder());
@@ -40,6 +43,8 @@ public final class RtpTeleportService {
         this.messageBridge = messageBridge;
         this.safeLocationFinder = safeLocationFinder;
         this.maxConcurrentSearches = Math.max(1, config.maxConcurrentSearches());
+        this.throttleSettings = config.adaptiveThrottle();
+        this.adaptiveConcurrentSearches = this.maxConcurrentSearches;
     }
 
     public void beginLocalTeleport(Player player, String worldName, String dimension) {
@@ -53,8 +58,10 @@ public final class RtpTeleportService {
     private void submit(TeleportJob job) {
         int queuePosition = 0;
         boolean startImmediately = false;
+        int currentLimit;
         synchronized (this) {
-            if (activeSearches < maxConcurrentSearches) {
+            currentLimit = currentSearchLimit();
+            if (activeSearches < currentLimit) {
                 activeSearches++;
                 startImmediately = true;
             } else {
@@ -68,7 +75,7 @@ public final class RtpTeleportService {
                     job.player().getUniqueId(),
                     job.requestId(),
                     activeSearches,
-                    maxConcurrentSearches);
+                    currentLimit);
             doTeleport(job);
             return;
         }
@@ -78,7 +85,7 @@ public final class RtpTeleportService {
                 job.requestId(),
                 queuePosition,
                 activeSearches,
-                maxConcurrentSearches);
+                currentLimit);
         if (job.player().isOnline() && job.player().isValid()) {
             job.player().sendMessage(messages.text("search-queued", "{position}", String.valueOf(queuePosition)));
         }
@@ -163,7 +170,7 @@ public final class RtpTeleportService {
             generateChunk = true;
             attempts = primary.size() + fallbackIndex + 1;
         } else {
-            logSearch(worldName, plan.maxAttempts(), System.nanoTime() - startedAt, false);
+            recordSearch(job, plan.maxAttempts(), System.nanoTime() - startedAt, false, false);
             plugin.debug("RTP search exhausted player=%s requestId=%s world=%s attempts=%d",
                     player.getUniqueId(),
                     requestId,
@@ -212,7 +219,7 @@ public final class RtpTeleportService {
 
             Optional<Location> destination = safeLocationFinder.validate(world, settings, plan, candidate);
             if (destination.isPresent()) {
-                logSearch(worldName, attempts, System.nanoTime() - startedAt, generatedFirstHit);
+                recordSearch(job, attempts, System.nanoTime() - startedAt, generatedFirstHit, true);
                 plugin.debug("Validated RTP destination player=%s requestId=%s world=%s x=%.1f y=%.1f z=%.1f attempt=%d mode=%s",
                         player.getUniqueId(),
                         requestId,
@@ -296,19 +303,39 @@ public final class RtpTeleportService {
         });
     }
 
-    private void logSearch(String worldName, int attempts, long elapsedNanos, boolean generatedFirstHit) {
-        if (!plugin.debugEnabled()) {
-            return;
-        }
-
+    private void recordSearch(TeleportJob job, int attempts, long elapsedNanos, boolean generatedFirstHit, boolean success) {
+        long queueWaitNanos = Math.max(0L, job.startedAtNanos() - job.queuedAtNanos());
         double elapsedMillis = elapsedNanos / 1_000_000.0D;
+        double queueWaitMillis = queueWaitNanos / 1_000_000.0D;
+        int completed = metrics.record(elapsedMillis, queueWaitMillis, attempts, generatedFirstHit, success);
+        adjustAdaptiveLimit();
+
         plugin.debug(
-                "RTP search timing world=%s attempts=%d durationMs=%.3f mode=%s",
-                worldName,
+                "RTP search timing world=%s attempts=%d durationMs=%.3f queueWaitMs=%.3f mode=%s success=%s limit=%d",
+                job.worldName(),
                 attempts,
                 elapsedMillis,
-                generatedFirstHit ? "generated-first" : "fallback"
+                queueWaitMillis,
+                generatedFirstHit ? "generated-first" : "fallback",
+                success,
+                currentSearchLimit()
         );
+        if (completed % throttleSettings.metricsLogInterval() == 0) {
+            plugin.debug(
+                    "RTP metrics completed=%d success=%d failure=%d avgSearchMs=%.3f avgQueueMs=%.3f avgAttempts=%.2f generatedFirstRatio=%.2f active=%d queued=%d limit=%d maxLimit=%d",
+                    completed,
+                    metrics.successCount(),
+                    metrics.failureCount(),
+                    metrics.averageSearchMillis(),
+                    metrics.averageQueueMillis(),
+                    metrics.averageAttempts(),
+                    metrics.generatedFirstRatio(),
+                    activeSearches,
+                    queuedSearches.size(),
+                    currentSearchLimit(),
+                    maxConcurrentSearches
+            );
+        }
     }
 
     private void finishJob(TeleportJob completedJob) {
@@ -316,11 +343,16 @@ public final class RtpTeleportService {
         int remainingQueue;
         synchronized (this) {
             activeSearches = Math.max(0, activeSearches - 1);
+            int currentLimit = currentSearchLimit();
             while (!queuedSearches.isEmpty()) {
                 TeleportJob candidate = queuedSearches.removeFirst();
+                if (activeSearches >= currentLimit) {
+                    queuedSearches.addFirst(candidate);
+                    break;
+                }
                 if (candidate.player().isOnline() && candidate.player().isValid()) {
                     activeSearches++;
-                    nextJob = candidate;
+                    nextJob = candidate.withStartedAt(System.nanoTime());
                     break;
                 }
             }
@@ -338,10 +370,132 @@ public final class RtpTeleportService {
                     nextJob.requestId(),
                     activeSearches,
                     remainingQueue);
-            doTeleport(nextJob);
+            startQueuedJob(nextJob);
         }
     }
 
-    private record TeleportJob(Player player, String requestId, String worldName, boolean clearPending) {
+    private int currentSearchLimit() {
+        return throttleSettings.enabled() ? adaptiveConcurrentSearches : maxConcurrentSearches;
+    }
+
+    private void startQueuedJob(TeleportJob nextJob) {
+        int delayTicks = throttleSettings.queueStartDelayTicks();
+        if (delayTicks <= 0) {
+            doTeleport(nextJob);
+            return;
+        }
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> doTeleport(nextJob), delayTicks);
+    }
+
+    private void adjustAdaptiveLimit() {
+        if (!throttleSettings.enabled()) {
+            return;
+        }
+
+        ServerHealth health = sampleServerHealth();
+        boolean unhealthy = health.tps() < throttleSettings.minTps() || health.mspt() > throttleSettings.maxMspt();
+        synchronized (this) {
+            if (unhealthy && adaptiveConcurrentSearches > throttleSettings.minConcurrentSearches()) {
+                adaptiveConcurrentSearches--;
+                plugin.debug("Adaptive RTP throttle reduced limit=%d tps=%.2f mspt=%.2f",
+                        adaptiveConcurrentSearches,
+                        health.tps(),
+                        health.mspt());
+            } else if (!unhealthy && adaptiveConcurrentSearches < maxConcurrentSearches) {
+                adaptiveConcurrentSearches++;
+                plugin.debug("Adaptive RTP throttle increased limit=%d tps=%.2f mspt=%.2f",
+                        adaptiveConcurrentSearches,
+                        health.tps(),
+                        health.mspt());
+            }
+        }
+    }
+
+    private ServerHealth sampleServerHealth() {
+        return new ServerHealth(readFirstTps(), readMspt());
+    }
+
+    private double readFirstTps() {
+        try {
+            Object result = plugin.getServer().getClass().getMethod("getTPS").invoke(plugin.getServer());
+            if (result instanceof double[] tps && tps.length > 0) {
+                return tps[0];
+            }
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            // Older test/server APIs may not expose TPS.
+        }
+        return 20.0D;
+    }
+
+    private double readMspt() {
+        try {
+            Object result = plugin.getServer().getClass().getMethod("getAverageTickTime").invoke(plugin.getServer());
+            if (result instanceof Number number) {
+                return number.doubleValue();
+            }
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            // Older test/server APIs may not expose MSPT.
+        }
+        return 0.0D;
+    }
+
+    private record ServerHealth(double tps, double mspt) {
+    }
+
+    private record TeleportJob(Player player, String requestId, String worldName, boolean clearPending, long queuedAtNanos, long startedAtNanos) {
+        TeleportJob(Player player, String requestId, String worldName, boolean clearPending) {
+            this(player, requestId, worldName, clearPending, System.nanoTime(), System.nanoTime());
+        }
+
+        TeleportJob withStartedAt(long startedAtNanos) {
+            return new TeleportJob(player, requestId, worldName, clearPending, queuedAtNanos, startedAtNanos);
+        }
+    }
+
+    private static final class RtpMetrics {
+        private int completed;
+        private int success;
+        private int generatedFirst;
+        private long totalAttempts;
+        private double totalSearchMillis;
+        private double totalQueueMillis;
+
+        int record(double searchMillis, double queueMillis, int attempts, boolean generatedFirstHit, boolean succeeded) {
+            completed++;
+            if (succeeded) {
+                success++;
+            }
+            if (generatedFirstHit) {
+                generatedFirst++;
+            }
+            totalAttempts += attempts;
+            totalSearchMillis += searchMillis;
+            totalQueueMillis += queueMillis;
+            return completed;
+        }
+
+        int successCount() {
+            return success;
+        }
+
+        int failureCount() {
+            return completed - success;
+        }
+
+        double averageSearchMillis() {
+            return completed == 0 ? 0.0D : totalSearchMillis / completed;
+        }
+
+        double averageQueueMillis() {
+            return completed == 0 ? 0.0D : totalQueueMillis / completed;
+        }
+
+        double averageAttempts() {
+            return completed == 0 ? 0.0D : (double) totalAttempts / completed;
+        }
+
+        double generatedFirstRatio() {
+            return completed == 0 ? 0.0D : (double) generatedFirst / completed;
+        }
     }
 }

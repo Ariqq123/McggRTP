@@ -13,6 +13,8 @@ import me.mcgg.azreyzaako.mcggrtp.paper.rtp.RtpTeleportService;
 import me.mcgg.azreyzaako.mcggrtp.paper.rtp.RtpWarmupService;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.command.PluginCommand;
+import org.bukkit.permissions.Permission;
+import org.bukkit.permissions.PermissionDefault;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class McggRTPPaper extends JavaPlugin {
@@ -26,6 +28,7 @@ public class McggRTPPaper extends JavaPlugin {
     public void onEnable() {
         updateBundledConfigs();
         reloadPluginState();
+        registerDynamicServerPermissions();
         this.messages = new MessageBundle(this);
         this.messageBridge = new PaperMessageBridge(this);
         this.teleportService = new RtpTeleportService(this, configModel, messages, messageBridge);
@@ -96,6 +99,26 @@ public class McggRTPPaper extends JavaPlugin {
         debug("Reloaded Paper config: currentServer=%s debug=%s",
                 configModel.network().currentServer(),
                 configModel.debug().enabled());
+    }
+
+    private void registerDynamicServerPermissions() {
+        if (configModel == null) {
+            return;
+        }
+        configModel.network().servers().values().stream()
+                .map(PaperConfig.NetworkServer::permission)
+                .filter(permission -> permission != null && !permission.isBlank())
+                .distinct()
+                .forEach(permission -> {
+                    if (getServer().getPluginManager().getPermission(permission) != null) {
+                        return;
+                    }
+                    getServer().getPluginManager().addPermission(new Permission(
+                            permission,
+                            "Allows RTP access to the configured McggRTP server target.",
+                            PermissionDefault.TRUE
+                    ));
+                });
     }
 
     private void updateBundledConfigs() {

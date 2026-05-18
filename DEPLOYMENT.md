@@ -128,6 +128,7 @@ In each backend `plugins/McggRTP-Paper/config.yml`, set:
 - GUI/server mappings
 - per-dimension `warmup-seconds`
 - RTP settings per world
+- adaptive RTP throttle settings
 
 Example for `survival-1`:
 
@@ -159,6 +160,22 @@ network:
   current-server: "survival-2"
 ```
 
+For production load, tune Paper-side concurrency under `rtp`:
+
+```yml
+rtp:
+  max-concurrent-searches: 8
+  adaptive-throttle:
+    enabled: true
+    min-concurrent-searches: 1
+    min-tps: 18.5
+    max-mspt: 80.0
+    queue-start-delay-ticks: 2
+    metrics-log-interval: 25
+```
+
+The adaptive throttle lowers active RTP searches when TPS/MSPT crosses the configured thresholds and recovers gradually when the backend is healthy. Enable `debug.enabled` to log queue wait, search duration, attempts, generated-first ratio, and the current adaptive limit.
+
 Warmup is enforced on the Paper backend before either:
 - a same-server RTP cooldown check and local teleport
 - a cross-server pending request to Velocity
@@ -170,6 +187,7 @@ search/teleport completion.
 
 Server permissions are dynamic by default. If you omit `permission` for a server,
 McggRTP derives `<server-permission-prefix><server-id>`.
+Derived server permissions are registered as default-allowed on Paper, so players do not need op just to use configured RTP servers.
 Examples:
 - with `mcggrtp.server.`: `survival-2` -> `mcggrtp.server.survival-2`
 - with `mcgg.server.`: `skyblock321` -> `mcgg.server.skyblock321`
@@ -213,10 +231,11 @@ The plugin uses these permissions:
 Defaults:
 
 - normal RTP permissions are enabled by default
+- dynamic `mcggrtp.server.<server-id>` permissions are enabled by default for normal players
 - `mcggrtp.bypass.cooldown` is op-only
 - `mcggrtp.admin.reload` is op-only
 
-If you use LuckPerms, assign them there instead of relying on defaults.
+Use LuckPerms to deny or grant specific server RTP permissions when you want per-server access control.
 
 ## Start order
 

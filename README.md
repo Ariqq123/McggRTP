@@ -171,9 +171,18 @@ Production RTP concurrency is controlled here:
 rtp:
   cooldown-seconds: 300
   max-concurrent-searches: 8
+  adaptive-throttle:
+    enabled: true
+    min-concurrent-searches: 1
+    min-tps: 18.5
+    max-mspt: 80.0
+    queue-start-delay-ticks: 2
+    metrics-log-interval: 25
 ```
 
 `max-concurrent-searches` limits how many RTP searches and chunk loads can run at the same time on a backend. Extra RTP requests wait in an in-memory queue and receive the `search-queued` message.
+
+`adaptive-throttle` lets Paper reduce active RTP searches when backend health drops below the configured TPS/MSPT thresholds, then gradually recover back to `max-concurrent-searches`. When `debug.enabled` is true, McggRTP logs queue wait, search duration, attempt count, generated-chunk ratio, and current adaptive limit every `metrics-log-interval` completed RTP jobs.
 
 ## Velocity Forwarding
 
@@ -214,7 +223,7 @@ Default permissions:
 - `mcggrtp.bypass.cooldown`
 - `mcggrtp.admin.reload`
 
-Normal RTP permissions default to allowed. Admin and cooldown bypass permissions default to op-only.
+Normal RTP permissions default to allowed. Dynamic server permissions also default to allowed for normal players, so a basic install does not require players to be op. Admin and cooldown bypass permissions default to op-only.
 
 Server permissions are dynamic. If a server entry omits `permission`, McggRTP derives it from:
 
@@ -226,6 +235,8 @@ Examples:
 
 - `survival-2` with prefix `mcggrtp.server.` becomes `mcggrtp.server.survival-2`
 - `skyblock321` with prefix `mcgg.server.` becomes `mcgg.server.skyblock321`
+
+Use LuckPerms to deny or grant specific `mcggrtp.server.<server-id>` permissions when you want per-server RTP access control.
 
 ## Commands
 

@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
-import hashlib
 from pathlib import Path
 
 from run_live_validation import (
@@ -46,7 +46,6 @@ def main() -> int:
     ]
     for server in paper_servers:
         prepare_paper_server(server)
-        write_ops_file(WORK_ROOT / server.dirname / "ops.json", bot_count)
 
     processes: list[subprocess.Popen[str]] = []
     try:
@@ -60,6 +59,7 @@ def main() -> int:
 
         install_node_dependencies()
         result = run_bot_stress(bot_count, mode)
+        result["serverPerformance"] = collect_server_performance(processes[1:])
         result["logAudit"] = audit_logs()
         report_path = WORK_ROOT / "stress-report.json"
         report_path.write_text(json.dumps(result, indent=2), encoding="utf-8")
@@ -94,25 +94,55 @@ def run_bot_stress(bot_count: int, mode: str) -> dict:
     return result
 
 
-def write_ops_file(path: Path, bot_count: int) -> None:
-    ops = [
-        {
-            "uuid": offline_uuid(f"Stress{index:02d}"),
-            "name": f"Stress{index:02d}",
-            "level": 4,
-            "bypassesPlayerLimit": False,
+def collect_server_performance(paper_processes: list[subprocess.Popen[str]]) -> dict:
+    for process in paper_processes:
+        if process.poll() is None and process.stdin:
+            process.stdin.write("tps\n")
+            process.stdin.write("mspt\n")
+            process.stdin.flush()
+
+    import time
+    time.sleep(2)
+
+    performance = {}
+    for dirname in ("paper1", "paper2"):
+        log_path = WORK_ROOT / dirname / "process.log"
+        lines = log_path.read_text(encoding="utf-8", errors="ignore").splitlines()
+        tps_line = clean_console_line(last_matching(lines, "TPS from last 1m, 5m, 15m:"))
+        mspt_header_index = last_matching_index(lines, "Server tick times")
+        mspt_lines = []
+        if mspt_header_index is not None:
+            for line in lines[mspt_header_index:mspt_header_index + 6]:
+                cleaned = clean_console_line(line)
+                if cleaned and ("Server tick times" in cleaned or "◴" in cleaned):
+                    mspt_lines.append(cleaned)
+        performance[dirname] = {
+            "tps": tps_line,
+            "mspt": " ".join(line for line in mspt_lines if line),
         }
-        for index in range(1, bot_count + 1)
-    ]
-    path.write_text(json.dumps(ops, indent=2), encoding="utf-8")
+    return performance
 
 
-def offline_uuid(username: str) -> str:
-    digest = bytearray(hashlib.md5(("OfflinePlayer:" + username).encode("utf-8")).digest())
-    digest[6] = (digest[6] & 0x0F) | 0x30
-    digest[8] = (digest[8] & 0x3F) | 0x80
-    hexed = digest.hex()
-    return f"{hexed[:8]}-{hexed[8:12]}-{hexed[12:16]}-{hexed[16:20]}-{hexed[20:32]}"
+def last_matching(lines: list[str], needle: str) -> str | None:
+    for line in reversed(lines):
+        if needle in line:
+            return line
+    return None
+
+
+def last_matching_index(lines: list[str], needle: str) -> int | None:
+    for index in range(len(lines) - 1, -1, -1):
+        if needle in lines[index]:
+            return index
+    return None
+
+
+def clean_console_line(line: str | None) -> str | None:
+    if line is None:
+        return None
+    without_ansi = re.sub(r"\x1b\[[0-9;]*m", "", line)
+    without_prompt = without_ansi.replace("\r", "").replace(">", "").strip()
+    return re.sub(r"\s+", " ", without_prompt)
 
 
 if __name__ == "__main__":

@@ -103,6 +103,7 @@ public final class PaperConfigLoader {
 
         Map<String, PaperConfig.WorldRtpSettings> worlds = new LinkedHashMap<>();
         ConfigurationSection rtp = root.getConfigurationSection("rtp");
+        ConfigurationSection adaptiveThrottle = rtp == null ? null : rtp.getConfigurationSection("adaptive-throttle");
         ConfigurationSection worldsSection = rtp == null ? null : rtp.getConfigurationSection("worlds");
         if (worldsSection != null) {
             for (String key : worldsSection.getKeys(false)) {
@@ -144,6 +145,14 @@ public final class PaperConfigLoader {
                 ),
                 rtp == null ? 300 : rtp.getInt("cooldown-seconds", 300),
                 rtp == null ? 8 : Math.max(1, rtp.getInt("max-concurrent-searches", 8)),
+                new PaperConfig.AdaptiveThrottleSettings(
+                        adaptiveThrottle == null || adaptiveThrottle.getBoolean("enabled", true),
+                        Math.max(1, integer(adaptiveThrottle, "min-concurrent-searches", 1)),
+                        number(adaptiveThrottle, "min-tps", 18.5D),
+                        number(adaptiveThrottle, "max-mspt", 80.0D),
+                        Math.max(0, integer(adaptiveThrottle, "queue-start-delay-ticks", 2)),
+                        Math.max(1, integer(adaptiveThrottle, "metrics-log-interval", 25))
+                ),
                 Map.copyOf(worlds)
         );
     }
@@ -154,6 +163,10 @@ public final class PaperConfigLoader {
 
     private int integer(ConfigurationSection section, String key, int fallback) {
         return section == null ? fallback : section.getInt(key, fallback);
+    }
+
+    private double number(ConfigurationSection section, String key, double fallback) {
+        return section == null ? fallback : section.getDouble(key, fallback);
     }
 
     private Material material(ConfigurationSection section, String key, Material fallback) {

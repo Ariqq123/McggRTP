@@ -216,6 +216,7 @@ class RtpTeleportServiceTest {
                 new PaperConfig.NetworkSettings("survival-1", "mcggrtp.server.", Map.of(), Map.of()),
                 300,
                 8,
+                new PaperConfig.AdaptiveThrottleSettings(false, 1, 18.5D, 80.0D, 0, 25),
                 Map.of("world", new PaperConfig.WorldRtpSettings(true, 0, 0, 0, 0, 2, false, Set.of(), Set.of(org.bukkit.Material.LAVA)))
         );
     }
@@ -230,6 +231,7 @@ class RtpTeleportServiceTest {
                 config().network(),
                 config().cooldownSeconds(),
                 1,
+                config().adaptiveThrottle(),
                 config().worlds()
         );
     }
