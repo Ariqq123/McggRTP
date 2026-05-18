@@ -4,7 +4,9 @@ const host = process.env.MCGGRTP_PROXY_HOST ?? '127.0.0.1'
 const port = Number(process.env.MCGGRTP_PROXY_PORT ?? '25575')
 const botCount = Number(process.env.MCGGRTP_STRESS_BOT_COUNT ?? '50')
 const mode = process.env.MCGGRTP_STRESS_MODE ?? 'local'
-const staggerMs = Number(process.env.MCGGRTP_STRESS_STAGGER_MS ?? '50')
+const connectStaggerMs = Number(process.env.MCGGRTP_STRESS_CONNECT_STAGGER_MS ?? '50')
+const defaultTransferStaggerMs = mode === 'cross' ? 3000 : 0
+const transferStaggerMs = Number(process.env.MCGGRTP_STRESS_STAGGER_MS ?? String(defaultTransferStaggerMs))
 const localMessageTimeoutMs = Number(process.env.MCGGRTP_STRESS_LOCAL_TIMEOUT_MS ?? '90000')
 const crossMessageTimeoutMs = Number(process.env.MCGGRTP_STRESS_CROSS_TIMEOUT_MS ?? '120000')
 const overallTimeoutMs = Number(process.env.MCGGRTP_STRESS_OVERALL_TIMEOUT_MS ?? '150000')
@@ -45,11 +47,13 @@ async function runBot(index) {
     port,
     username,
     auth: 'offline',
-    version: '1.21.5'
+    version: '1.21.5',
+    viewDistance: 'tiny'
   })
   const flowStartedAt = Date.now()
   const chatLog = []
   let transferStarted = false
+  let teleportConfirmed = false
 
   bot.on('message', (message) => {
     chatLog.push(message.toString())
@@ -78,15 +82,25 @@ async function runBot(index) {
 
     bot.once('spawn', async () => {
       try {
-        await sleep(index * staggerMs)
-        await selectRtp(bot, dimensionSlot, mode === 'cross' ? crossServerSlot : localServerSlot)
+        await sleep(index * connectStaggerMs)
+        if (mode === 'cross') {
+          // Mineflayer can keep emitting play-state movement packets while
+          // Velocity is moving the connection through configuration state.
+          // Vanilla clients handle this cleanly, but under stress those bot
+          // packets are decoded by Velocity as configuration packets.
+          bot.physicsEnabled = false
+        }
+        await selectRtp(
+          bot,
+          dimensionSlot,
+          mode === 'cross' ? crossServerSlot : localServerSlot,
+          mode === 'cross' ? index * transferStaggerMs : 0
+        )
         if (mode === 'cross') {
           transferStarted = true
           await waitForMessage(bot, chatLog, crossTransfer, crossMessageTimeoutMs)
-          await Promise.race([
-            waitForMessage(bot, chatLog, crossSuccess, crossMessageTimeoutMs).then(() => 'teleported'),
-            waitForDisconnectAfterTransfer(bot, crossMessageTimeoutMs).then(() => 'disconnected')
-          ])
+          await waitForMessage(bot, chatLog, crossSuccess, crossMessageTimeoutMs)
+          teleportConfirmed = true
         } else {
           await waitForMessage(bot, chatLog, localSuccess, localMessageTimeoutMs)
         }
@@ -104,18 +118,29 @@ async function runBot(index) {
     })
 
     bot.on('kicked', (reason) => {
-      if (mode === 'cross' && transferStarted) {
+      if (mode === 'cross' && transferStarted && !teleportConfirmed) {
         clearTimeout(timeout)
-        finalize({ ok: true, note: `kicked after transfer: ${reason}` })
+        finalize({ ok: false, reason: `kicked before cross RTP confirmation: ${reason}`, chatTail: chatLog.slice(-10) })
         return
       }
       clearTimeout(timeout)
       finalize({ ok: false, reason: `kicked: ${reason}`, chatTail: chatLog.slice(-10) })
     })
+
+    bot.on('end', () => {
+      clearTimeout(timeout)
+      finalize({
+        ok: false,
+        reason: mode === 'cross' && transferStarted && !teleportConfirmed
+          ? 'disconnected before cross RTP confirmation'
+          : 'disconnected',
+        chatTail: chatLog.slice(-10)
+      })
+    })
   })
 }
 
-async function selectRtp(bot, selectedDimensionSlot, selectedServerSlot) {
+async function selectRtp(bot, selectedDimensionSlot, selectedServerSlot, serverClickDelayMs = 0) {
   const firstWindow = waitForWindow(bot)
   bot.chat('/rtp')
   await firstWindow
@@ -123,18 +148,14 @@ async function selectRtp(bot, selectedDimensionSlot, selectedServerSlot) {
   await bot.clickWindow(selectedDimensionSlot, 0, 0)
   await waitForWindow(bot)
   await sleep(150)
+  if (serverClickDelayMs > 0) {
+    await sleep(serverClickDelayMs)
+  }
   await bot.clickWindow(selectedServerSlot, 0, 0)
 }
 
 function waitForWindow(bot, timeoutMs = 15000) {
   return onceWithTimeout(bot, 'windowOpen', timeoutMs)
-}
-
-function waitForDisconnectAfterTransfer(bot, timeoutMs) {
-  return Promise.race([
-    onceWithTimeout(bot, 'end', timeoutMs),
-    onceWithTimeout(bot, 'kicked', timeoutMs)
-  ])
 }
 
 function waitForMessage(bot, chatLog, pattern, timeoutMs = 20000) {

@@ -49,7 +49,11 @@ def main() -> int:
 
     processes: list[subprocess.Popen[str]] = []
     try:
-        processes.append(start_server("velocity", ["java", "-Xms384M", "-Xmx384M", "-jar", "velocity.jar"], WORK_ROOT / "velocity"))
+        velocity_command = ["java", "-Xms384M", "-Xmx384M"]
+        if os.environ.get("MCGGRTP_VELOCITY_PACKET_DECODE_LOGGING", "false").lower() == "true":
+            velocity_command.append("-Dvelocity.packet-decode-logging=true")
+        velocity_command.extend(["-jar", "velocity.jar"])
+        processes.append(start_server("velocity", velocity_command, WORK_ROOT / "velocity"))
         for server in paper_servers:
             processes.append(start_server(server.dirname, ["java", "-Xms768M", "-Xmx768M", "-jar", "server.jar", "--nogui"], WORK_ROOT / server.dirname))
 
