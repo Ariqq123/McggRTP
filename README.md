@@ -2,6 +2,19 @@
 
 McggRTP is a random teleport plugin built for a Velocity network with Paper backend servers. It provides a `/rtp` GUI, same-server RTP, cross-server RTP, proxy-owned cooldowns, server status in the GUI, and production-oriented queueing for high-concurrency RTP requests.
 
+## Goal
+
+McggRTP aims to provide a reliable, permission-friendly, and performance-aware random teleport system for Velocity + Paper networks.
+
+The plugin is designed around a few production goals:
+
+- RTP success must mean the player was actually teleported to a safe destination, not merely transferred between servers.
+- Cross-server RTP must be verifiable from the target Paper backend.
+- Normal players should be able to use RTP without being op, while LuckPerms can still restrict specific servers or dimensions.
+- High-concurrency RTP should be controlled with queueing, adaptive throttling, and idle safe-location pooling instead of unbounded chunk searches.
+- Stress validation should report both RTP results and server health signals such as TPS/MSPT.
+- Test harness limitations, especially bot protocol artifacts, should be separated from real plugin behavior.
+
 The project builds two deployable plugins:
 
 - `McggRTP-paper.jar` for every Paper backend that should support RTP
@@ -26,7 +39,10 @@ Use the shaded jars from `paper/build/libs/` and `velocity/build/libs/`. Do not 
 - `/rtp reload` for Paper config reload and Velocity config reload request.
 - Debug mode for tracing GUI, plugin messaging, cooldowns, pending RTP, transfers, and teleport completion.
 - Paper-side RTP queueing with `rtp.max-concurrent-searches` for production servers with many simultaneous RTP requests.
+- Adaptive Paper-side RTP throttling based on backend TPS/MSPT.
+- Idle safe-location pooling to reduce player-facing RTP search time without generating new chunks by default.
 - Automatic Paper `config.yml` and `messages.yml` default-key merge on startup and `/rtp reload`.
+- Strict integration stress checks that require cross-server RTP confirmation from the destination server.
 
 ## Architecture
 
@@ -45,6 +61,7 @@ Runtime flow:
 5. For same-server RTP, Paper asks Velocity for cooldown state, then teleports locally.
 6. For cross-server RTP, Paper asks Velocity to create pending RTP and transfer the player.
 7. The target Paper backend checks for pending RTP after join and completes the teleport.
+8. Paper sends completion back to Velocity so pending RTP state can be cleared.
 
 The plugin message channel is `mcggrtp:main`. You do not create this channel manually; both plugins register it in code.
 
@@ -246,6 +263,15 @@ Examples:
 
 Use LuckPerms to deny or grant specific `mcggrtp.server.<server-id>` permissions when you want per-server RTP access control.
 
+Recommended LuckPerms examples:
+
+```text
+/lp group default permission set mcggrtp.use true
+/lp group default permission set mcggrtp.server.survival-2 false
+/lp group vip permission set mcggrtp.server.survival-2 true
+/lp group admin permission set mcggrtp.admin.reload true
+```
+
 ## Commands
 
 ```text
@@ -304,11 +330,32 @@ Run local RTP stress validation:
 MCGGRTP_STRESS_BOT_COUNT=50 MCGGRTP_STRESS_MODE=local python3 integration/run_stress_validation.py
 ```
 
-The latest 50-bot local stress run completed with:
+Run cross-server RTP stress validation:
+
+```bash
+MCGGRTP_STRESS_MODE=cross MCGGRTP_STRESS_BOT_COUNT=10 python3 integration/run_stress_validation.py
+```
+
+For cross-server stress, the harness staggers the server-click phase by default. This avoids a known Mineflayer/Velocity protocol artifact where many simultaneous bot transfers can emit malformed configuration-state packets. This does not affect real players; it keeps the stress test focused on McggRTP behavior instead of bot protocol noise.
+
+If you need detailed Velocity packet decode logs during harness diagnosis:
+
+```bash
+MCGGRTP_VELOCITY_PACKET_DECODE_LOGGING=true MCGGRTP_STRESS_MODE=cross MCGGRTP_STRESS_BOT_COUNT=10 python3 integration/run_stress_validation.py
+```
+
+The latest local stress run completed with:
 
 - `botCount=50`
 - `successCount=50`
 - `failureCount=0`
+
+The latest strict cross-server stress run completed with:
+
+- `botCount=10`
+- `successCount=10`
+- `failureCount=0`
+- cross-server success required the destination message `[S2] Teleported`
 
 The generated report is written to:
 
@@ -316,8 +363,8 @@ The generated report is written to:
 
 Validation evidence reference:
 
-- Date: `2026-05-16`
-- Commit: `eb50f5e86af3b780264b68d8a5346e4da3363a05`
+- Date: `2026-05-18`
+- Branch: `dev`
 - Artifact path: `.integration/runtime/stress-report.json`
 
 ## Constraints
@@ -328,6 +375,7 @@ Validation evidence reference:
 - Same-server RTP still depends on Velocity for network-wide cooldown ownership.
 - Existing Paper configs are updated by merging missing default keys only; current values are not overwritten.
 - Broad RTP into new terrain can still cost server resources because Minecraft chunk generation is expensive. Use reasonable radius, attempt, and concurrency settings.
+- Mineflayer is useful for repeatable stress validation, but it is not a perfect vanilla-client substitute during heavy simultaneous cross-server transfers. Use server-side audit logs and real-client checks before treating bot-only transfer errors as production player failures.
 
 ## Troubleshooting
 
@@ -340,6 +388,14 @@ If `/rtp` opens the GUI but cross-server RTP does not finish, confirm:
 - Velocity server ids match Paper `network.current-server`
 - Velocity can reach the target backend
 - debug mode is enabled while collecting logs
+- the target Paper backend logs the player join and RTP completion
+
+If stress validation reports Velocity `ClientSettingsPacket`, `Bad VarInt`, or packet decode errors during cross-server tests:
+
+- first rerun with the default cross-server stagger
+- reduce `MCGGRTP_STRESS_BOT_COUNT` to isolate plugin behavior from bot transfer noise
+- enable `MCGGRTP_VELOCITY_PACKET_DECODE_LOGGING=true` only while diagnosing
+- compare with a real client through Velocity before treating it as a production defect
 
 If servers show the wrong status in the GUI, confirm:
 
