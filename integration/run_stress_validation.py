@@ -65,6 +65,11 @@ def main() -> int:
         result = run_bot_stress(bot_count, mode)
         result["serverPerformance"] = collect_server_performance(processes[1:])
         result["logAudit"] = audit_logs()
+        if mode == "cross":
+            result["destinationAuditConfirmed"] = (
+                result.get("ok")
+                and result["logAudit"].get("crossDestinationRtpSuccessCount", 0) >= result.get("successCount", 0)
+            )
         report_path = WORK_ROOT / "stress-report.json"
         report_path.write_text(json.dumps(result, indent=2), encoding="utf-8")
         print(json.dumps(result, indent=2))

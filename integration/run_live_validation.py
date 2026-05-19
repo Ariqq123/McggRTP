@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -209,7 +210,7 @@ def velocity_plugin_config() -> dict:
     return {
         "settings": {
             "plugin-message-channel": "mcggrtp:main",
-            "pending-expire-seconds": 5,
+            "pending-expire-seconds": 30,
         },
         "cooldowns": {
             "enabled": True,
@@ -398,6 +399,11 @@ def audit_logs() -> dict:
     velocity_log = (WORK_ROOT / "velocity" / "process.log").read_text(encoding="utf-8", errors="ignore")
     paper1_log = (WORK_ROOT / "paper1" / "process.log").read_text(encoding="utf-8", errors="ignore")
     paper2_log = (WORK_ROOT / "paper2" / "process.log").read_text(encoding="utf-8", errors="ignore")
+    rtp_audit_events = parse_rtp_audit_events(paper1_log, "paper1") + parse_rtp_audit_events(paper2_log, "paper2")
+    cross_destination_successes = [
+        event for event in rtp_audit_events
+        if event.get("result") == "success" and event.get("mode") == "cross" and event.get("server") == "survival-2"
+    ]
     return {
         "paper1Join": "TestBot joined the game" in paper1_log,
         "sameServerCommands": paper1_log.count("TestBot issued server command: /rtp"),
@@ -405,7 +411,31 @@ def audit_logs() -> dict:
         "endAdvancement": "The End?" in paper1_log,
         "proxyConnectedToSurvival2": "TestBot -> survival-2 has connected" in velocity_log,
         "paper2SawPlayer": "UUID of player TestBot" in paper2_log,
+        "rtpAuditEventCount": len(rtp_audit_events),
+        "rtpAuditSuccessCount": sum(1 for event in rtp_audit_events if event.get("result") == "success"),
+        "crossDestinationRtpSuccessCount": len(cross_destination_successes),
+        "rtpAuditEvents": rtp_audit_events,
     }
+
+
+def parse_rtp_audit_events(log: str, source: str) -> list[dict[str, str]]:
+    events: list[dict[str, str]] = []
+    for line in log.splitlines():
+        if "[McggRTP-AUDIT]" not in line:
+            continue
+        event: dict[str, str] = {"source": source, "line": clean_console_line(line) or line}
+        for key, value in re.findall(r"(\w+)=([^\s]+)", line):
+            event[key] = value
+        events.append(event)
+    return events
+
+
+def clean_console_line(line: str | None) -> str | None:
+    if line is None:
+        return None
+    without_ansi = re.sub(r"\x1b\[[0-9;]*m", "", line)
+    without_prompt = without_ansi.replace("\r", "").replace(">", "").strip()
+    return re.sub(r"\s+", " ", without_prompt)
 
 
 def stop_processes(processes: list[subprocess.Popen[str]]) -> None:

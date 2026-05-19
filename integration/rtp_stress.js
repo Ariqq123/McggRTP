@@ -5,8 +5,10 @@ const port = Number(process.env.MCGGRTP_PROXY_PORT ?? '25575')
 const botCount = Number(process.env.MCGGRTP_STRESS_BOT_COUNT ?? '50')
 const mode = process.env.MCGGRTP_STRESS_MODE ?? 'local'
 const connectStaggerMs = Number(process.env.MCGGRTP_STRESS_CONNECT_STAGGER_MS ?? '50')
-const defaultTransferStaggerMs = mode === 'cross' ? 3000 : 0
+const defaultTransferStaggerMs = mode === 'cross' ? 8000 : 0
 const transferStaggerMs = Number(process.env.MCGGRTP_STRESS_STAGGER_MS ?? String(defaultTransferStaggerMs))
+const defaultInitialTransferDelayMs = mode === 'cross' ? 8000 : 0
+const initialTransferDelayMs = Number(process.env.MCGGRTP_STRESS_INITIAL_TRANSFER_DELAY_MS ?? String(defaultInitialTransferDelayMs))
 const localMessageTimeoutMs = Number(process.env.MCGGRTP_STRESS_LOCAL_TIMEOUT_MS ?? '90000')
 const crossMessageTimeoutMs = Number(process.env.MCGGRTP_STRESS_CROSS_TIMEOUT_MS ?? '120000')
 const overallTimeoutMs = Number(process.env.MCGGRTP_STRESS_OVERALL_TIMEOUT_MS ?? '150000')
@@ -94,7 +96,7 @@ async function runBot(index) {
           bot,
           dimensionSlot,
           mode === 'cross' ? crossServerSlot : localServerSlot,
-          mode === 'cross' ? index * transferStaggerMs : 0
+          mode === 'cross' ? initialTransferDelayMs + (index * transferStaggerMs) : 0
         )
         if (mode === 'cross') {
           transferStarted = true

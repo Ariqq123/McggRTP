@@ -4,6 +4,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -120,6 +121,7 @@ public final class RtpTeleportService {
                 messageBridge.sendResult(player, new RtpResult(requestId, player.getUniqueId(), false, "Target world unavailable."));
                 messageBridge.sendClearPending(player, requestId);
             }
+            audit(job, false, "world-unavailable", worldName, null, 0, System.nanoTime() - job.startedAtNanos());
             finishJob(job);
             return;
         }
@@ -132,8 +134,9 @@ public final class RtpTeleportService {
                     requestId,
                     worldName,
                     poolSize(worldName));
-            recordSearch(job, 0, System.nanoTime() - job.startedAtNanos(), true, true);
-            completeTeleport(job, pooledDestination.get());
+            long elapsedNanos = System.nanoTime() - job.startedAtNanos();
+            recordSearch(job, 0, elapsedNanos, true, true);
+            completeTeleport(job, pooledDestination.get(), 0, elapsedNanos);
             return;
         }
 
@@ -200,6 +203,7 @@ public final class RtpTeleportService {
                 messageBridge.sendResult(player, new RtpResult(requestId, player.getUniqueId(), false, "Could not find a safe location."));
                 messageBridge.sendClearPending(player, requestId);
             }
+            audit(job, false, "no-safe-location", worldName, null, plan.maxAttempts(), System.nanoTime() - startedAt);
             finishJob(job);
             return;
         }
@@ -225,6 +229,7 @@ public final class RtpTeleportService {
                     messageBridge.sendResult(player, new RtpResult(requestId, player.getUniqueId(), false, "Chunk load failed."));
                     messageBridge.sendClearPending(player, requestId);
                 }
+                audit(job, false, "chunk-load-failed", worldName, null, attempts, System.nanoTime() - startedAt);
                 finishJob(job);
                 return;
             }
@@ -238,7 +243,8 @@ public final class RtpTeleportService {
 
             Optional<Location> destination = safeLocationFinder.validate(world, settings, plan, candidate);
             if (destination.isPresent()) {
-                recordSearch(job, attempts, System.nanoTime() - startedAt, generatedFirstHit, true);
+                long elapsedNanos = System.nanoTime() - startedAt;
+                recordSearch(job, attempts, elapsedNanos, generatedFirstHit, true);
                 plugin.debug("Validated RTP destination player=%s requestId=%s world=%s x=%.1f y=%.1f z=%.1f attempt=%d mode=%s",
                         player.getUniqueId(),
                         requestId,
@@ -248,7 +254,7 @@ public final class RtpTeleportService {
                         destination.get().getZ(),
                         attempts,
                         generatedFirstHit ? "generated-first" : "fallback");
-                completeTeleport(job, destination.get());
+                completeTeleport(job, destination.get(), attempts, elapsedNanos);
                 return;
             }
 
@@ -269,7 +275,7 @@ public final class RtpTeleportService {
         }));
     }
 
-    private void completeTeleport(TeleportJob job, Location destination) {
+    private void completeTeleport(TeleportJob job, Location destination, int attempts, long searchElapsedNanos) {
         Player player = job.player();
         String requestId = job.requestId();
         boolean clearPending = job.clearPending();
@@ -290,6 +296,7 @@ public final class RtpTeleportService {
                     destination.getY(),
                     destination.getZ());
             if (success) {
+                audit(job, true, "", destination.getWorld() == null ? job.worldName() : destination.getWorld().getName(), destination, attempts, searchElapsedNanos);
                 if (!clearPending) {
                     messageBridge.sendResult(player, new RtpResult("", player.getUniqueId(), true, ""));
                 }
@@ -304,6 +311,7 @@ public final class RtpTeleportService {
                     messageBridge.sendResult(player, new RtpResult(requestId, player.getUniqueId(), false, "Teleport failed."));
                     messageBridge.sendClearPending(player, requestId);
                 }
+                audit(job, false, "teleport-failed", destination.getWorld() == null ? job.worldName() : destination.getWorld().getName(), destination, attempts, searchElapsedNanos);
             }
             finishJob(job);
         }).exceptionally(throwable -> {
@@ -316,10 +324,42 @@ public final class RtpTeleportService {
                     messageBridge.sendResult(player, new RtpResult(requestId, player.getUniqueId(), false, "Teleport failed."));
                     messageBridge.sendClearPending(player, requestId);
                 }
+                audit(job, false, "teleport-exception", destination.getWorld() == null ? job.worldName() : destination.getWorld().getName(), destination, attempts, searchElapsedNanos);
                 finishJob(job);
             });
             return null;
         });
+    }
+
+    private void audit(TeleportJob job,
+                       boolean success,
+                       String reason,
+                       String worldName,
+                       Location destination,
+                       int attempts,
+                       long elapsedNanos) {
+        Player player = job.player();
+        double durationMillis = elapsedNanos / 1_000_000.0D;
+        String mode = job.clearPending() ? "cross" : "local";
+        String requestId = job.requestId().isBlank() ? "local" : job.requestId();
+        String serverId = config.network().currentServer();
+        String position = destination == null
+                ? "x= y= z="
+                : String.format(Locale.ROOT, "x=%.3f y=%.3f z=%.3f", destination.getX(), destination.getY(), destination.getZ());
+        plugin.getLogger().info(String.format(
+                Locale.ROOT,
+                "[McggRTP-AUDIT] event=rtp result=%s reason=%s requestId=%s playerUuid=%s server=%s world=%s mode=%s attempts=%d durationMs=%.3f %s",
+                success ? "success" : "failure",
+                reason == null || reason.isBlank() ? "-" : reason,
+                requestId,
+                player.getUniqueId(),
+                serverId,
+                worldName,
+                mode,
+                Math.max(0, attempts),
+                durationMillis,
+                position
+        ));
     }
 
     private void recordSearch(TeleportJob job, int attempts, long elapsedNanos, boolean generatedFirstHit, boolean success) {

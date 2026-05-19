@@ -3,6 +3,7 @@ package me.mcgg.azreyzaako.mcggrtp.paper.rtp;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.inOrder;
@@ -94,6 +95,8 @@ class RtpTeleportServiceTest {
 
         verify(world).getChunkAtAsync(0, 0, false);
         verify(bridge).sendResult(player, new RtpResult("", player.getUniqueId(), true, ""));
+        verify(logger).info(contains("[McggRTP-AUDIT] event=rtp result=success"));
+        verify(logger).info(contains("mode=local"));
     }
 
     @Test
@@ -114,6 +117,9 @@ class RtpTeleportServiceTest {
         verify(world).getChunkAtAsync(1, 1, true);
         verify(bridge).sendResult(player, new RtpResult("req-1", player.getUniqueId(), true, ""));
         verify(bridge).sendClearPending(player, "req-1");
+        verify(logger).info(contains("requestId=req-1"));
+        verify(logger).info(contains("server=survival-1"));
+        verify(logger).info(contains("mode=cross"));
     }
 
     @Test
@@ -143,6 +149,7 @@ class RtpTeleportServiceTest {
 
         verify(bridge).sendResult(player, new RtpResult("req-1", player.getUniqueId(), false, "Could not find a safe location."));
         verify(bridge).sendClearPending(player, "req-1");
+        verify(logger).info(contains("result=failure reason=no-safe-location"));
     }
 
     @Test
